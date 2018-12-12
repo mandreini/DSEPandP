@@ -4,16 +4,21 @@ Created on Thu Dec  6 09:26:19 2018
 
 @author: mandreini
 """
+import abc
 import numpy as np
 import matplotlib.pyplot as plt
 
 
-class heli(object):
+class SRheli(object):
     
+    __metaclass__ = abc
+    configuration = 'single-rotor'
+    iscoax = False
+    zR = 0
     
-    def __init__(self, name, Nr, Nb, W, h, R, c, f, P_e, eta_m, Omega, CDS, CDp_bar, k=1.15):
+    def __init__(self, name, Nr, Nb, W, h, R, c, f, P_e, eta_m, Omega, CDS, CDp_bar, k=1.15, *args, **kwargs):
         '''
-        Initialise a helicopter object
+        Initialise a single rotor helicopter object
         
         Parameters
         ----------
@@ -44,6 +49,7 @@ class heli(object):
         '''
         self.name0, self.Nr0, self.Nb0, self.W0, self.h0, self.R0, self.c0, self.f0, self.P_e0, self.eta_m0, self.Omega0, self.CDS0, self.CDp_bar0, self.k0 = (
             name, Nr, Nb, W, h, R, c, f, P_e, eta_m, Omega, CDS, CDp_bar, k)  # record the given values
+        
         self.name = name
         self.Nr = Nr
         self.Nb = Nb
@@ -59,12 +65,37 @@ class heli(object):
         self.CDp_bar = CDp_bar
         self.k = k
         
-    def _reset_values(self):
+    @staticmethod 
+    def convert(Nr, Nb, R, c, Omega):
+        '''
+        Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
+        
+        Parameters
+        ----------
+        Nr : int
+            Number of rotors
+        Nb : int
+            Number of blades (per rotor)
+        R : float
+            Blade radius
+        c : float
+            Blade chord length
+        Omega : float
+            Angular velocity of the rotor
+            
+        Returns
+        -------
+        Nr, Nb, R, c, Omega equivalents for a coaxial rotor
+        
+        '''
+        return 2, Nb//2, R/np.sqrt(2), c/np.sqrt(2), Omega*np.sqrt(2)
+        
+    def reset_values(self):
         '''Reset all the parameters of the HAMRAC to their initial ones'''
         self.name, self.Nr, self.Nb, self.W, self.h, self.R, self.c, self.f, self.P_e, self.eta_m, self.Omega, self.CDS, self.CDp_bar, self.k, self.alpha = (
         self.name0, self.Nr0, self.Nb0, self.W0, self.h0, self.R0, self.c0, self.f0, self.P_e0, self.eta_m0, self.Omega0, self.CDS0, self.CDp_bar0, self.k0, self.alpha0)
         
-    def _calc_params(self):
+    def calc_params(self):
         '''Calculcate design parameters. Allows for them to change as new variables are introduced'''
         self.sigma = self.Nb * self.c / (np.pi*self.R)
         self.v_tip = self.Omega*self.R
@@ -72,7 +103,7 @@ class heli(object):
         self.vi_hov = (np.sqrt(self.W/(2*self.rho*np.pi*self.R**2)))
         self.P_a = self.P_e*self.eta_m
 
-    def _get_vihov(self, R):
+    def get_vihov(self, R):
         return np.sqrt(self.W/(2*self.rho*np.pi*R**2))
         
     def setR(self, Rs):
@@ -153,7 +184,7 @@ class heli(object):
         '''
         Pto, Pi, Ppd, Ppar = Pto/1000, Pi/1000, Ppd/1000, Ppar/1000
         plt.figure()
-        xscale=1.3
+        xscale=1.5
         yscale=1.1
         plt.xlim(v[0], v[-1]*xscale)
         plt.ylim(0, max(Pto)*yscale)
@@ -170,12 +201,12 @@ class heli(object):
         
         v_A, v_B, v_C, Pmin, Psfr = self.determineV_chars(v, Pto)
         
-        plt.axhline(self.P_a, 0, v_C/max(v)/xscale, label='Pa', color='blue', linestyle='dotted')
-        plt.axvline(v_C, 0, self.P_a/max(Pto)/yscale, label='vmax', color='blue', linestyle='dashed')
+        plt.axhline(self.P_a, 0, v_C/v.max()/xscale, label='Pa: %i kW' % int(self.P_a), color='blue', linestyle='dotted')
+        plt.axvline(v_C, 0, self.P_a/Pto.max()/yscale, label='vmax: %i m/s' % int(v_C), color='blue', linestyle='dashed')
         plt.plot((0,v_B), (0, Psfr), color='purple')
-        plt.axvline(v_B, 0, Psfr/max(Pto)/yscale, label='vsfr', color='purple', linestyle='dashed')
-        plt.axvline(v_A, 0, Pmin/max(Pto)/yscale, label='vpmin: %i m/s' % int(v_A), color='brown', linestyle='dashed')
-        plt.axhline(Pmin, 0, v_A/max(v)/xscale, color='brown', linestyle='dotted')
+        plt.axvline(v_B, 0, Psfr/Pto.max()/yscale, label='vsfr: %i m/s' % int(v_B), color='purple', linestyle='dashed')
+        plt.axvline(v_A, 0, Pmin/Pto.max()/yscale, label='vpmin: %i m/s' % int(v_A), color='brown', linestyle='dashed')
+        plt.axhline(Pmin, 0, v_A/v.max()/xscale, label='Pmin: %i kW' % int(Pmin), color='brown', linestyle='dotted')
         plt.legend(loc='lower right')
         if fname: plt.savefig(fname)
         plt.show()
@@ -241,7 +272,7 @@ class heli(object):
         p_sfr = P_to[closest_loc]
         
         # maximum airspeed
-        equal_power = np.where(P_to>P_a)
+        equal_power = np.where(P_to>P_a*1000)
         if len(equal_power) > 0:
             v_C = v[np.where(P_to>P_a)[0][0]]  # does not work when hover is critical
         else:
@@ -251,7 +282,7 @@ class heli(object):
         
     def determineP_to(self, v_air, P_to0=None):
         ''' 
-        Determine the total power required of a helicopter in level, forward flight
+        Determine the total power required of a helicopter in level, forward flights
         
         Parameters
         ----------
@@ -276,7 +307,7 @@ class heli(object):
         P_par : array_like
             The parasite drag power for the helicopter at airspeed
         '''
-        self._calc_params()
+        self.calc_params()
         
         Pexcess = 0 if P_to0 is None else self.P_a*1000 - P_to0
         v_cl = 2*Pexcess/self.W
@@ -341,7 +372,7 @@ class heli(object):
             The power at hover values calculated
         '''
         self.setR(Rs)
-        self._calc_params()
+        self.calc_params()
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (Rs, P_hovs)
@@ -365,7 +396,7 @@ class heli(object):
             The power at hover values calculated
         '''
         self.setc(cs)
-        self._calc_params()
+        self.calc_params()
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (cs, P_hovs)
@@ -389,7 +420,7 @@ class heli(object):
             The power at hover values calculated
         '''
         self.setOmega(Omegas)
-        self._calc_params()
+        self.calc_params()
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (Omegas, P_hovs)
@@ -414,45 +445,50 @@ class heli(object):
         '''
         Rs, vs = np.meshgrid(Rs, vs)
         self.setR(Rs)
-        self._calc_params()
+        self.calc_params()
         vs, Ps = self.determineP_to(v_air=vs)
         vchars = self.determineV_chars(v=vs[0], P_to=Ps[0])
-        # fix the return for the plot vals
         return vs, (Rs, vchars)
     
-            
-HAMRAC = heli('HAMRAC', 1, 8, 2657*9.81, 8950, 8.49, 0.457, 3, 450, 0.95, 21.21, 2, 0.012, 1.15)
-marilena = heli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
-airspeed = np.arange(1, 105, 1)
-airspeed2 = np.arange(1, 120, 1)
-#mp = marilena.powerCurve(airspeed2)
 
-#level_speed, level_power = HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a rotorcraft in level, horizontal, forward flight', fname='PowerCurveHAMRACLevel.png')
-#level_vchars = HAMRAC.determineV_chars(airspeed, level_power/1000)
-#climb_speed, climbing_power = HAMRAC.powerCurve(airspeed, level_power, 'Power requirements for a rotorcraft in non-level, climbing flight', fname='PowerCurveHAMRACClimb.png')
-#climb_vchars = HAMRAC.determineV_chars(airspeed, level_power/1000)
-#
-#Rvs, Rdata = HAMRAC.idealPhovafoR()
-#HAMRAC.plot_val(Rdata[0], Rdata[1][0]/1000, title='Optimising power required to hover wrt blade radius', xlabel='Blade radius R [m]', ylabel='P_hov [kW]', get_min=True)
-#
-#cvs, cdata = HAMRAC.idealPhovafoc()
-#HAMRAC.plot_val(cdata[0], cdata[1][0]/1000, title='Optimising power required to hover wrt blade chord', xlabel='Blade chord c [m]', ylabel='P_hov [kW]', get_min=True)
-#
-#Omegavs, Omegadata = HAMRAC.idealPhovafoOmega()
-#HAMRAC.plot_val(Omegadata[0], Omegadata[1][0]/1000, title='Optimising power required to hover wrt angular velocity', xlabel='Angular velocity Omega [rad/s]', ylabel='P_hov [kW]', get_min=True)
+class Coaxheli(SRheli):
+    
+    configuration = 'coaxial-rotor'
+    iscoax = True
+    zR = 0
 
-v_Avs, v_Adata = HAMRAC.v_charsafoR(airspeed)#np.linspace(1,100,10), Rs=np.arange(5,10,1))
-v_Avals = v_Adata[1][::-1]
-HAMRAC.plot_val(v_Adata[0][0], v_Avals, xlabel='Radius of rotor R (m)', ylabel='v_pmin; minimum power airspeed', title='Comparison between minimum power airspeed and rotor diameter')
+    def __init__(self, *args, **kwargs):
+        super(Coaxheli, self).__init__(*args, **kwargs)
+        
+        if 'zR' in kwargs.keys():
+            self.set_zR(kwargs['zR'])
+        
+        if 'convert' in kwargs.keys() and kwargs['convert']:
+            self.convert()
 
-#h2 = HAMRAC
-#h2.setR(1)
-#h2p1 = h2.powerCurve()
-#h2.setR(6)
-#h2p2 = h2.powerCurve()
-#h2.setR(7)
-#h2p3 = h2.powerCurve()
-#h2.setR(8)
-#h2p4 = h2.powerCurve()
-#h2.setR(9)
-#h2p5 = h2.powerCurve()
+    def set_zR(self, zRs):
+        self.zR = zRs
+        
+    def convert(self): 
+        '''
+        Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
+        '''
+        self.Nr = 2 
+        self.Nb = self.Nb//2
+        self.R = self.R/np.sqrt(2)
+        self.c = self.c/np.sqrt(2)
+        self.Omega = self.Omega*np.sqrt(2)
+    
+    def reconvert(self):
+        '''
+        Takes the (current) coaxial rotor parameters, and returns them into their single-rotor equivalent sizes
+        '''        
+        SR_Nr = 1
+        SR_Nb = self.Nb*2
+        SR_R = self.R*np.sqrt(2)
+        SR_c = self.c*np.sqrt(2)
+        SR_Omega = self.Omega/np.sqrt(2)
+        
+        return SR_Nr, SR_Nb, SR_R, SR_c, SR_Omega
+
+
