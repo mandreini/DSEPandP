@@ -250,31 +250,19 @@ class SRheli(object):
         
         # minimum fuel flow airspeed (maximum range airspeed)
         # method: determine slope at all points on graph, determine slope of line between origin and said point, then find which one is the closest
-#        dydx = [(P_to[i+1]-P_to[i-1])/(v[i+1]-v[i-1]) for i in range(1, len(P_to)-1)]
-#        m = [P_to[j]/v[j] for j in range(1, len(P_to)-1)]
-#        difference0 = [abs((dydx[k]-m[k])/m[k]) for k in range(len(m))]
-#        closest_fit = min(difference)
-#        closest_loc = difference.index(closest_fit)
-#        p_sfr = P_to[closest_loc]
-#        v_B = v[closest_loc]
-#        
         slope_power_to = np.gradient(P_to, axis=0)  # identical to dydx, but also includes first and last
-        # plt.plot(v[:,0], P_to[:,0]/max(P_to[:,0]), v[:,0], sl1[:,0]/max(sl1[:,0]))
         slope_origin_to_point = P_to/v  # identical to m, but also includes first and last
-#        P_to_I, P_to_II = np.meshgrid(P_to, P_to)
-#        v_I, v_II = np.meshgrid(v, v)
-#        dydx = (P_to_II-P_to_I)/(v_II-v_I)
-#        m = P_to/v
         difference = np.abs((slope_power_to - slope_origin_to_point)/slope_origin_to_point)
         closest_fit = difference.min(axis=0)
         closest_loc = np.where(difference==closest_fit)   
+        
         v_B = v[closest_loc]
         p_sfr = P_to[closest_loc]
         
         # maximum airspeed
         equal_power = np.where(P_to>P_a*1000)
         if len(equal_power) > 0:
-            v_C = v[np.where(P_to>P_a)[0][0]]  # does not work when hover is critical
+            v_C = v[np.where(P_to>P_a)[0][0]]  # does not work when hover is critical, probably does not work at all with 2D
         else:
             v_C = max(v)
         
@@ -309,15 +297,17 @@ class SRheli(object):
         '''
         self.calc_params()
         
+        # velocity of the air seen by the heli
         Pexcess = 0 if P_to0 is None else self.P_a*1000 - P_to0
         v_cl = 2*Pexcess/self.W
         v_inf = np.sqrt(v_air**2 + v_cl**2)
         
+        # angle of the air seen by the rotor
         myu = v_air/(self.Omega*self.R)
         P_par = self.CDS*0.5*self.rho*v_inf**3
-        alpha_tpp = (Pexcess+P_par)/self.W/v_inf if P_to0 is not None else 0
+        alpha_tpp = (Pexcess+P_par)/self.W/v_inf if P_to0 is not None else 0  # cunha 6
         
-        vi_cr = self.vi_hov**2 / np.sqrt((v_inf*np.cos(alpha_tpp))**2+(v_inf*np.sin(alpha_tpp)+self.vi_hov)**2)  # from cunha lecture 6
+        vi_cr = self.vi_hov**2 / np.sqrt((v_inf*np.cos(alpha_tpp))**2+(v_inf*np.sin(alpha_tpp)+self.vi_hov)**2)  # from cunha lecture 6; vi_cr is induced velocity in cruise
         P_i = self.W*vi_cr
         P_pd = self.sigma*self.CDp_bar/8 * self.rho * ((self.Omega*self.R)**3) * np.pi*self.R**2 * (1+3*myu**2)  # to be given from Aero department, note: highly sensity to blade radius (R^5)!
         

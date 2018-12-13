@@ -9,11 +9,11 @@ import numpy as np
 import heli
 import engine
 
-#heliinputs = 'HAMRAC', 1, 8, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
+heliinputs = 'HAMRAC', 1, 8, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
 
 #SR_HAMRAC = heli.SRheli(*heliinputs)
 #marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
-#airspeed = np.arange(1, 120, 1)
+airspeed = np.arange(1, 120, 1)
 #mp = marilena.powerCurve(airspeed2)
 
 # Single Rotor Sample Power curve
@@ -23,8 +23,8 @@ import engine
 #climb_vchars = HAMRAC.determineV_chars(airspeed, level_power/1000)
 
 # Coaxial Rotor Sample Power Curve
-#Coax_HAMRAC = heli.Coaxheli(*heliinputs, zR=0.19, convert=True)
-#clvl_v, clvl_p = Coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a rotorcraft in level, horizontal, forward flight', fname='PowerCurveCoaxLevel.png')
+Coax_HAMRAC = heli.Coaxheli(*heliinputs, zR=0.19, convert=True)
+clvl_v, clvl_p = Coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a rotorcraft in level, \nhorizontal, forward flight', fname='PowerCurveCoaxLevel.png')
 #ccl_v, ccl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for a rotorcraft in non-level, climbing flight', fname='PowerCurveCoaxClimb.png')
 
 # Rotor size difference between single-rotor and coaxial-rotor configurations

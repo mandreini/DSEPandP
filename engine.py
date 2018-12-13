@@ -7,7 +7,7 @@ Created on Wed Dec 12 14:28:58 2018
 
 class Engine(object):
     
-    def __init__(self, P_sl, weight, fuel_flow):
+    def __init__(self, P_sl, name='not given', mass=None, sfc=None, size=None):
         '''
         Create an engine object
         To be changed as i.e. Max does the engine work, this is a basic structure
@@ -17,15 +17,15 @@ class Engine(object):
         P_sl : float
             Power available at sea level
         weight : float
-            Weight of the engine, in N
-        fuel_flow : float
-            Fuel flow mass of the engine, in N/s
+            Weight of the engine, in kg
+        sfc : float
+            Specific fuel consumption of the engine, in N/s
         '''
         
         self.P_sl = P_sl
-        self.lapse = lapse
         self.weight = weight
-        self.fuel_flow = fuel_flow
+        self.sfc = sfc
+        self.size = size
         
     @staticmethod
     def get_rho(h):
@@ -38,7 +38,8 @@ class Engine(object):
     def determine_power_at_altitude(self, h):
         '''
         Function to determine power provided by the engine at given altitude
-        The math is made up at the moment
+        Power available decreases 1:1 with density decrease
+        Power available increases 0.1% per degree K temperature decrease
         
         Parameters
         ----------
@@ -55,9 +56,13 @@ class Engine(object):
         Ta = self.get_T(h)
         T0 = self.get_T(0)
         
-        # 0.1% decrease per rho0/rhoa, 0.05% increase per T0/Ta
-        return self.P_sl/(rho0/rhoa*0.001)*(T0/Ta*0.0005)
-    
-h125 = Engine(632, 250*9.81, 2.3)
-h9kPa = H125.determine_power_at_altitude(9000)
-print(h9kPa)
+        return self.P_sl*(rhoa/rho0)*(1+(T0-Ta)*0.001)
+
+lbshrhp2nsw = lambda x: 0.453592*0.277778*9.81/0.745699872*1000 * x   # lbs/hr/hp to N/s/W... I think 
+   
+HoneywellT35 = Engine(1175, name='AH-1J SeaCobra', weight=312, sfc=lbshrhp2nsw(0.65), size=(120/9, 24.5))  # https://aerospace.honeywell.com/en/products/engines/t53-turboshaft-engine, 
+# https://aerospace.honeywell.com/en/~/media/aerospace/files/brochures/n61-1733-000-000-t53-v6-bro.pdf, https://en.wikipedia.org/wiki/Lycoming_T53
+KlimovVK2500 = Engine(1985, name='Kamov Ka-50', weight=300, sfc=0.22*3.6, size=(205.5, 72.8))  # https://en.wikipedia.org/wiki/Klimov_VK-2500
+
+print(HoneywellT35.determine_power_at_altitude(9000))
+
