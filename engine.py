@@ -23,7 +23,7 @@ class Engine(object):
         '''
         
         self.P_sl = P_sl
-        self.weight = weight
+        self.mass = mass
         self.sfc = sfc
         self.size = size
         
@@ -60,9 +60,9 @@ class Engine(object):
 
 lbshrhp2nsw = lambda x: 0.453592*0.277778*9.81/0.745699872*1000 * x   # lbs/hr/hp to N/s/W... I think 
    
-HoneywellT35 = Engine(1175, name='AH-1J SeaCobra', weight=312, sfc=lbshrhp2nsw(0.65), size=(120/9, 24.5))  # https://aerospace.honeywell.com/en/products/engines/t53-turboshaft-engine, 
+HoneywellT35 = Engine(1175, name='AH-1J SeaCobra', mass=312, sfc=lbshrhp2nsw(0.65), size=(120/9, 24.5))  # https://aerospace.honeywell.com/en/products/engines/t53-turboshaft-engine, 
 # https://aerospace.honeywell.com/en/~/media/aerospace/files/brochures/n61-1733-000-000-t53-v6-bro.pdf, https://en.wikipedia.org/wiki/Lycoming_T53
-KlimovVK2500 = Engine(1985, name='Kamov Ka-50', weight=300, sfc=0.22*3.6, size=(205.5, 72.8))  # https://en.wikipedia.org/wiki/Klimov_VK-2500
+KlimovVK2500 = Engine(1985, name='Kamov Ka-50', mass=300, sfc=0.22*3.6, size=(205.5, 72.8))  # https://en.wikipedia.org/wiki/Klimov_VK-2500
 
 print(HoneywellT35.determine_power_at_altitude(9000))
 
