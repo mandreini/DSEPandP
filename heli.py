@@ -7,7 +7,7 @@ Created on Thu Dec  6 09:26:19 2018
 import abc
 import numpy as np
 import matplotlib.pyplot as plt
-
+import engine
 
 class SRheli(object):
     
@@ -65,6 +65,9 @@ class SRheli(object):
         self.CDp_bar = CDp_bar
         self.k = k
         
+        self.P_a = P_e*eta_m
+        self.engine_choice = None
+        
     @staticmethod 
     def convert(Nr, Nb, R, c, Omega):
         '''
@@ -101,7 +104,6 @@ class SRheli(object):
         self.v_tip = self.Omega*self.R
         self.rho = 1.225*288.16/(15+271.16-1.983*self.h/304.8)*(1-(0.001981*self.h/0.3048)/288.16)**5.256
         self.vi_hov = (np.sqrt(self.W/(2*self.rho*np.pi*self.R**2)))
-        self.P_a = self.P_e*self.eta_m
 
     def get_vihov(self, R):
         return np.sqrt(self.W/(2*self.rho*np.pi*R**2))
@@ -129,7 +131,12 @@ class SRheli(object):
         
     def setCDS(self, CDSs):
         self.CDS = CDSs
-    
+
+    def setEngine(self, engine):
+        self.engine_choice = engine
+        self.P_a = engine.determine_power_at_altitude(self.h)
+        self.P_e = engine.P_sl
+
     def plot_val(self, x, y, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None):
         '''Plot x against y'''
         plt.figure()
@@ -241,9 +248,6 @@ class SRheli(object):
         P_sfr : float
             Power required at v_A (power required for maximum specific flight range) [W]
         '''
-        # transmission losses
-        P_a = self.eta_m * self.P_e
-        
         # minimum power airspeed
         p_min = P_to.min(axis=0) 
         v_A = v[np.where(P_to==p_min)]
@@ -260,9 +264,9 @@ class SRheli(object):
         p_sfr = P_to[closest_loc]
         
         # maximum airspeed
-        equal_power = np.where(P_to>P_a*1000)
+        equal_power = np.where(P_to>self.P_a)[0]
         if len(equal_power) > 0:
-            v_C = v[np.where(P_to>P_a)[0][0]]  # does not work when hover is critical, probably does not work at all with 2D
+            v_C = v[equal_power][0]  # does not work when hover is critical, probably does not work at all with 2D
         else:
             v_C = max(v)
         
@@ -315,7 +319,7 @@ class SRheli(object):
         
         return (v_air, v_cl), (P_to, P_i, P_pd, P_par)
     
-    def powerCurve(self, vs=np.arange(0, 105, 1), P_to0=None, figtitle='Power requirements for a helicopter in level forward flight', fname=None):
+    def powerCurve(self, vs=np.arange(0, 105, 1), P_to0=None, figtitle='Power requirements for a rotorcraft in level forward flight', fname=None, select_engine=True):
         '''
         Generate a power curve for various airspeeds
         
@@ -340,8 +344,33 @@ class SRheli(object):
         '''
         
         v_vals, power_vals = self.determineP_to(vs, P_to0)
+        if select_engine:
+            self.select_engine(power_vals[0])
         self.gen_pcurve(vs, *power_vals, figtitle, fname)
         return v_vals, power_vals[0]
+    
+    def select_engine(self, P_to):
+        '''
+        Using the EngineSpider object in engine.py, iterate through all engine possibilities
+        and select the "best" one. The best one is (currently) determined by whichever 
+        engine provides the lowest power at altitude that meets hover power requirements.
+        
+        Parameters
+        ----------
+        P_to : array_like
+            An array of power values in kW, with P_to[0] being power at hover
+        
+        Returns
+        -------
+        Engine_best : engine.Engine
+            The engine with the available power closest to the hover requirements 
+            that meets them
+        Engine_alternatives : list; engine.Engine
+            All engines that meet the hover power requirements
+        '''
+        engine_best, engine_alternatives = engine.engineoptions.select_engine(P_to[0], self.h)
+        self.setEngine(engine_best)
+        return engine_best, engine_alternatives
             
     def idealPhovafoR(self, Rs=np.linspace(1,11)):
         '''
