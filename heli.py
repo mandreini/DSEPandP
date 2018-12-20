@@ -332,7 +332,10 @@ class SRheli(object):
         
         # velocity of the air seen by the heli
         Pexcess = 0 if P_to0 is None else self.P_a*1000 - P_to0
-        v_cl = 2*Pexcess/self.W
+        v_cl_uncor = 2*Pexcess/self.W
+        v_cl = v_cl_uncor
+        v_cl_cor = (1+(1/(v_cl_uncor/(np.sqrt(self.W/2./self.get_rho(self.h)/np.pi/self.R**2))+1)))  # https://apps.dtic.mil/dtic/tr/fulltext/u2/a061671.pdf
+        v_cl /= v_cl_cor        
         v_inf = np.sqrt(v_air**2 + v_cl**2)
         
         # angle of the air seen by the rotor

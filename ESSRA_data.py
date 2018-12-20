@@ -11,6 +11,7 @@ import heli
 heliinputs = 'HAMRAC', 1, 6, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
 airspeed = np.arange(1, 100, 1, dtype=float)
 
+#far = heli.Coaxheli('FAR-regulation-check', 1, 6, 2657*9.81, 6400, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15, convert=True)
 #SR_HAMRAC = heli.SRheli(*heliinputs)
 #marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
 
@@ -27,6 +28,10 @@ airspeed = np.arange(1, 100, 1, dtype=float)
 Coax_HAMRAC = heli.Coaxheli(*heliinputs, zR=0.19, convert=True)
 clvl_v, clvl_p = Coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a coaxial rotorcraft in \nlevel, horizontal, forward flight', fname='PowerCurveCoaxLevel.png')
 ccl_v, ccl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for a coaxial rotorcraft in \nnon-level, climbing flight', fname='PowerCurveCoaxClimb.png', select_engine=False)
+
+# check far regulations with dummy heli
+#farlvl_v, farlvl_p = far.powerCurve(airspeed, P_to0=None,figtitle='Power requirements for a FAR rotorcraft in \nlevel, horizontal, forward flight', fname=None)
+#farcl_v, farcl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for a FAR rotorcraft in \nnon-level, climbing flight', fname=None, select_engine=False)
 
 # Rotor size difference between single-rotor and coaxial-rotor configurations
 #print('Parameter | single-rotor | coaxial-rotor\nNr |', SR_HAMRAC.Nr, '|', Coax_HAMRAC.Nr, '\nNb |', SR_HAMRAC.Nb, '|', SR_HAMRAC.Nb, '\nR |', SR_HAMRAC.R, '|', Coax_HAMRAC.R, '\nc |', SR_HAMRAC.c, '|', Coax_HAMRAC.c, '\nOmega |', SR_HAMRAC.Omega, '|', Coax_HAMRAC.Omega)
@@ -73,3 +78,4 @@ ccl_v, ccl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for 
 #m34_cl_v, m34_cl_p = m3campfens4.powerCurve(vs=airspeed, P_to0=m34_lvl_p, figtitle='Power requirements for %s in non-level, climbing flight' % m3campfens4.name, fname='leonvals/pcurvem34_cl.png')
 
 #data = SR_HAMRAC.compare_statistics()
+
