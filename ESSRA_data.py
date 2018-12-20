@@ -8,18 +8,20 @@ Created on Wed Dec 12 14:37:18 2018
 import numpy as np
 import heli
 
-heliinputs = 'HAMRAC', 1, 8, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
+heliinputs = 'HAMRAC', 1, 6, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
+airspeed = np.arange(1, 100, 1, dtype=float)
 
 #SR_HAMRAC = heli.SRheli(*heliinputs)
-marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
-airspeed = np.arange(1, 120, 1)
-mp = marilena.powerCurve(airspeed[:80])
+#marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
+
+#mp = marilena.powerCurve(airspeed[:80])
+#mpcl = marilena.powerCurve(airspeed[:80], P_to0=mp[1])
 
 # Single Rotor Sample Power curve
 #level_speed, level_power = SR_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a rotorcraft in level, horizontal, forward flight', fname='PowerCurveHAMRACLevel.png')
-#level_vchars = HAMRAC.determineV_chars(airspeed, level_power/1000)
-#climb_speed, climbing_power = SR_HAMRAC.powerCurve(airspeed, level_power, 'Power requirements for a rotorcraft in non-level, climbing flight', fname='PowerCurveHAMRACClimb.png')
-#climb_vchars = HAMRAC.determineV_chars(airspeed, level_power/1000)
+#level_vchars = SR_HAMRAC.determineV_chars(airspeed, level_power/1000)
+#climb_speed, climb_power = SR_HAMRAC.powerCurve(airspeed, level_power, 'Power requirements for a rotorcraft in non-level, climbing flight', fname='PowerCurveHAMRACClimb.png', select_engine=False)
+#climb_vchars = SR_HAMRAC.determineV_chars(airspeed, level_power/1000)
 
 # Coaxial Rotor Sample Power Curve
 Coax_HAMRAC = heli.Coaxheli(*heliinputs, zR=0.19, convert=True)
@@ -70,3 +72,4 @@ ccl_v, ccl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for 
 #m24_cl_v, m24_cl_p = m2krenik4.powerCurve(vs=airspeed, P_to0=m24_lvl_p, figtitle='Power requirements for %s in non-level, climbing flight' % m2krenik4.name, fname='leonvals/pcurvem24_cl.png')
 #m34_cl_v, m34_cl_p = m3campfens4.powerCurve(vs=airspeed, P_to0=m34_lvl_p, figtitle='Power requirements for %s in non-level, climbing flight' % m3campfens4.name, fname='leonvals/pcurvem34_cl.png')
 
+#data = SR_HAMRAC.compare_statistics()

@@ -7,15 +7,20 @@ Created on Thu Dec  6 09:26:19 2018
 import abc
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import engine
 
 class SRheli(object):
     
-    __metaclass__ = abc
+    __metaclass__ = abc.ABCMeta
     configuration = 'single-rotor'
     iscoax = False
     zR = 0
-    
+    gamma = 1.4
+    v_cr = 140/1.9
+    vmax = v_cr*1.15 
+    vne = vmax*1.1
+
     def __init__(self, name, Nr, Nb, W, h, R, c, f, P_e, eta_m, Omega, CDS, CDp_bar, k=1.15, *args, **kwargs):
         '''
         Initialise a single rotor helicopter object
@@ -98,12 +103,36 @@ class SRheli(object):
         self.name, self.Nr, self.Nb, self.W, self.h, self.R, self.c, self.f, self.P_e, self.eta_m, self.Omega, self.CDS, self.CDp_bar, self.k, self.alpha = (
         self.name0, self.Nr0, self.Nb0, self.W0, self.h0, self.R0, self.c0, self.f0, self.P_e0, self.eta_m0, self.Omega0, self.CDS0, self.CDp_bar0, self.k0, self.alpha0)
         
-    def calc_params(self):
+    @staticmethod
+    def get_rho(h):
+        return 1.225*288.16/(15+271.16-1.983*h/304.8)*(1-(0.001981*h/0.3048)/288.16)**5.256
+
+    @staticmethod
+    def get_T(h):
+        return (15+271.16-1.983*h/304.8)
+        
+    def get_a(self):
+        return np.sqrt(self.gamma, self.R, self.get_T(self.h))
+        
+    def get_bl(self, v_air=v_cr):
+        v_tip = self.v_tip + v_air
+        return self.W/np.pi/self.R**2 / self.rho / v_tip / v_tip / self.sigma
+        
+    @staticmethod
+    def get_vtip(R, Omega, v):
+        return (Omega*R+v) / v
+
+    def calc_params(self, v_air=v_cr):
         '''Calculcate design parameters. Allows for them to change as new variables are introduced'''
         self.sigma = self.Nb * self.c / (np.pi*self.R)
         self.v_tip = self.Omega*self.R
-        self.rho = 1.225*288.16/(15+271.16-1.983*self.h/304.8)*(1-(0.001981*self.h/0.3048)/288.16)**5.256
+        self.rho = self.get_rho(self.h)
         self.vi_hov = (np.sqrt(self.W/(2*self.rho*np.pi*self.R**2)))
+        self.A = self.R/self.c
+        self.cbar = self.c/self.R
+        self.v_tip = self.v_tip + v_air
+        self.bl = self.get_bl(self.v_tip)
+        self.myu_c = self.v_tip/v_air
 
     def get_vihov(self, R):
         return np.sqrt(self.W/(2*self.rho*np.pi*R**2))
@@ -346,7 +375,7 @@ class SRheli(object):
         v_vals, power_vals = self.determineP_to(vs, P_to0)
         if select_engine:
             self.select_engine(power_vals[0])
-        self.gen_pcurve(vs, *power_vals, figtitle, fname)
+        self.gen_pcurve(vs, *power_vals, figtitle=figtitle, fname=fname)
         return v_vals, power_vals[0]
     
     def select_engine(self, P_to):
@@ -468,7 +497,33 @@ class SRheli(object):
         vs, Ps = self.determineP_to(v_air=vs)
         vchars = self.determineV_chars(v=vs[0], P_to=Ps[0])
         return vs, (Rs, vchars)
+        
+    def Mtip_ne_constraint(self):
+        '''
+        thing
+        '''
+        #vtip < 0.92 mach @ vne @ 8950m
+        vtip_ne = self.v_tip + self.vne
+        Mtip_ne = vtip_ne/self.get_a
+        return Mtip_ne < 0.92
+        
+    def Mtip_cr_constraint(self):
+        #Mtip @ cruise @ 8950m < 0.85
+        vtip_cr = self.v_tip + self.v_cr
+        Mtip_cr = vtip_cr/self.get_a
+        return Mtip_cr < 0.85
     
+    def myu_constraint(self):
+        #myu < 0.45 in cruise
+        myu = (self.v_cr+self.v_tip) / self.v_cr
+        return myu < 0.45
+        
+    def bl_constraint(self):
+        #bl < 0.12
+        v_tip = self.v_cr+self.v_tip
+        s = 0.6
+        bl = s*self.W*9.81 / (self.c*self.Nb*self.R*v_tip**2)
+        return bl < 0.12
 
 class Coaxheli(SRheli):
     

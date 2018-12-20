@@ -200,8 +200,3 @@ LeonardoAW119KX = B407
 BChinook = Engine(3631, 'Boeing Chinook CH47-F (Block 2)', 'Tandem', size=(1.196, 0.615), mass=377)
 
 [engineoptions.add_engine(i) for i in [B206BR, B212, B230, B407, ATwinstar, LeonardoAW119KX, BChinook]]
-
-
-#wb = openpyxl.load_workbook('DSE Propulsion HAMRAC.xlsx')
-#
-#sheet_2 = wb.get_sheet_by_name('Engines')
