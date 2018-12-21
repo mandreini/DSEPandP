@@ -8,10 +8,11 @@ Created on Wed Dec 12 14:37:18 2018
 import numpy as np
 import heli
 
-heliinputs = 'HAMRAC', 1, 6, 2657*9.81, 8950, 8.49, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15
-airspeed = np.arange(1, 100, 1, dtype=float)
+MTOW = 2657
+heliinputs = 'HAMRAC', 1, 6, MTOW*9.81, 6700, 4.46, 0.304, 3, 650, 0.95, 41, 2, 0.012, 1.15
+airspeed = np.arange(1, 120, 1, dtype=float)
 
-#far = heli.Coaxheli('FAR-regulation-check', 1, 6, 2657*9.81, 6400, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15, convert=True)
+far = heli.Coaxheli('FAR-regulation-check', 1, 6, MTOW*9.81, 6400, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15, convert=True)
 #SR_HAMRAC = heli.SRheli(*heliinputs)
 #marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2000, 0.95, 21, 3, 0.01, 1.15)
 
@@ -26,7 +27,7 @@ airspeed = np.arange(1, 100, 1, dtype=float)
 
 # Coaxial Rotor Sample Power Curve
 Coax_HAMRAC = heli.Coaxheli(*heliinputs, zR=0.19, convert=True)
-clvl_v, clvl_p = Coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a coaxial rotorcraft in \nlevel, horizontal, forward flight', fname='PowerCurveCoaxLevel.png')
+clvl_v, clvl_p = Coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a coaxial rotorcraft in \nlevel, horizontal, forward flight', fname='PowerCurveCoaxLevel.png', select_engine=True)
 ccl_v, ccl_p = Coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for a coaxial rotorcraft in \nnon-level, climbing flight', fname='PowerCurveCoaxClimb.png', select_engine=False)
 
 # check far regulations with dummy heli

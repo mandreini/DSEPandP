@@ -123,7 +123,7 @@ class EngineSpider(object):
         ''' Manually add an engine to the engines property '''
         self.engines.append(engine)
         
-    def select_engine(self, P_hov, h):
+    def select_engine(self, P_hov, h, v_cl0):
         '''
         Choose the "best" engine. "Best" (currently) is defined as the engine with
         the smallest available power that meets power requirements in hover at altitude
@@ -133,7 +133,9 @@ class EngineSpider(object):
         P_hov : float
             The hover power, in W
         h : float
-            The altitude of the engine 
+            The altitude of the engine for regulation 1 (TO)
+        v_cl0 : float
+            The climb velocity at hover          
             
         Returns
         -------
@@ -150,6 +152,7 @@ class EngineSpider(object):
             # smallest difference, (assume) all possibilities meet hover requirements
             if p.P_sl - P_hov < best.P_sl - P_hov:
                 best = p
+            
         return best, possibilities
     
     def estimate_mass(self, engine):

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import engine
+import copy
 
 class SRheli(object):
     
@@ -137,6 +138,9 @@ class SRheli(object):
     def get_vihov(self, R):
         return np.sqrt(self.W/(2*self.rho*np.pi*R**2))
         
+    def setname(self, name):
+        self.name = name
+        
     def setR(self, Rs):
         self.R = Rs
 
@@ -164,6 +168,11 @@ class SRheli(object):
     def setEngine(self, engine):
         self.engine_choice = engine
         self.P_a = engine.determine_power_at_altitude(self.h)
+        self.P_e = engine.P_sl
+        
+    def setTwinEngine(self, engine):
+        self.engine_choice = engine
+        self.P_a = 2*engine.determine_power_at_altitude(self.h)
         self.P_e = engine.P_sl
 
     def plot_val(self, x, y, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None):
@@ -239,7 +248,7 @@ class SRheli(object):
         
         plt.axhline(self.P_a, 0, v_C/v.max()/xscale, label='Pa: %i kW' % int(self.P_a), color='blue', linestyle='dotted')
         plt.axvline(v_C, 0, self.P_a/Pto.max()/yscale, label='vmax: %i m/s' % int(v_C), color='blue', linestyle='dashed')
-        plt.plot((0,v_B), (0, Psfr), color='purple')
+        plt.plot((0,v_B), (0, Psfr), color='purple', linestyle='dotted')
         plt.axvline(v_B, 0, Psfr/Pto.max()/yscale, label='vsfr: %i m/s' % int(v_B), color='purple', linestyle='dashed')
         plt.axvline(v_A, 0, Pmin/Pto.max()/yscale, label='vpmin: %i m/s' % int(v_A), color='brown', linestyle='dashed')
         plt.axhline(Pmin, 0, v_A/v.max()/xscale, label='Pmin: %i kW' % int(Pmin), color='brown', linestyle='dotted')
@@ -400,8 +409,25 @@ class SRheli(object):
         Engine_alternatives : list; engine.Engine
             All engines that meet the hover power requirements
         '''
-        engine_best, engine_alternatives = engine.engineoptions.select_engine(P_to[0], self.h)
+        far_regulation_TO = copy.copy(self)
+        far_regulation_TO.setname('far-regulation-1, TO')
+        far_regulation_TO.seth(6400)
+        farTO_v, farTO_power = far_regulation_TO.determineP_to(np.linspace(1, 100))#, P_to0=P_to[0])        
+        
+        engine_best, engine_alternatives = engine.engineoptions.select_engine(farTO_power[0][0], far_regulation_TO.h, farTO_v[1])
         self.setEngine(engine_best)
+
+        far_regulation_vcl = copy.copy(far_regulation_TO)
+        far_regulation_vcl.setname('far-regulation-2, vcl')
+        far_regulation_vcl.seth(6705)
+        farvcl_v, farvcl_power = far_regulation_vcl.determineP_to(np.linspace(1, 100), P_to0=farTO_power[0])
+
+        if farvcl_v[1][0] < 0.76:
+            print('better engine needed')
+            engine_best, engine_alternatives = engine.engineoptions.select_engine(farvcl_power[0][0], far_regulation_vcl.h, P_to0=farvcl_power[0])
+        
+        self.setTwinEngine(engine_best)
+        print(farvcl_v[1][0])        
         return engine_best, engine_alternatives
             
     def idealPhovafoR(self, Rs=np.linspace(1,11)):
@@ -552,9 +578,9 @@ class Coaxheli(SRheli):
         '''
         self.Nr = 2 
         self.Nb = self.Nb//2
-        self.R = self.R/np.sqrt(2)
-        self.c = self.c/np.sqrt(2)
-        self.Omega = self.Omega*np.sqrt(2)
+        self.R = self.R*np.sqrt(2)
+        self.c = self.c*np.sqrt(2)
+        self.Omega = self.Omega/np.sqrt(2)
     
     def reconvert(self):
         '''
