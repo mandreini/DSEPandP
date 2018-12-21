@@ -11,8 +11,17 @@ import matplotlib.pyplot as plt
 class DesignSpace(object):
     
     def __init__(self):
+        '''
+        Initialise and object to check the design space for the HAMRAC.
+        Values given are fixed for the current mission.
+        Statistical boundaries and constraints are given by Leon.
+        '''
         self.v_cr = 140/1.9
+        self.vmax = self.v_cr*1.15 
+        self.vne = self.vmax*1.1
         self.Nb = 3
+        self.W = 2500*9.81
+        self.h = 8950
 
         self.statistical_boundaries = {
             'c': [0.19, 0.45],
@@ -23,15 +32,48 @@ class DesignSpace(object):
             'A': [12.5, 25],  # R/c
             'sigma': [0.03, 0.12],  # Nb*c/pi/R
             'bl': [0.07, 0.1],  #  W/pi/R/R/rho/vtip/vtip/sigma 
-            'vtip': [180, 220],  # Omega * R + vair
+            'vtip': [180, 220],  # Omega * R
             'myu': [0.25, 0.4],  # vair / vtip
         }        
+       
+    def Mtip_ne_constraint(self):
+        ''' vtip < 0.92 mach @ vne @ 8950m '''
         
-    def calca(self,):
+        vtip_ne = self.v_tip + self.vne
+        Mtip_ne = vtip_ne/self.get_a
+        return Mtip_ne < 0.92
+        
+    def Mtip_cr_constraint(self):
+        ''' Mtip @ cruise @ 8950m < 0.85 '''
+        vtip_cr = self.v_tip + self.v_cr
+        Mtip_cr = vtip_cr/self.get_a
+        return Mtip_cr < 0.85
+    
+    def myu_constraint(self):
+        ''' myu < 0.45 in cruise '''
+        myu = (self.v_cr+self.v_tip) / self.v_cr
+        return myu < 0.45
+        
+    def bl_constraint(self):
+        ''' bl < 0.12 '''
+        v_tip = self.v_cr+self.v_tip
+        s = 0.6
+        bl = s*self.W*9.81 / (self.c*self.Nb*self.R*v_tip**2)
+        return bl < 0.12
+
+    def calca(self):
         return np.sqrt(self.gamma, self.R, self.get_T(self.h))
         
-    
+    @staticmethod
+    def get_rho(h):
+        return 1.225*288.16/(15+271.16-1.983*h/304.8)*(1-(0.001981*h/0.3048)/288.16)**5.256
+
     def get_Rafovtip_Omega(self):
+        '''
+        Determine values for R as a function of v_tip and Omega
+        Fix vtip to minimum (vtip1), and determine R1, R2 for Omegamin, Omegamax
+        Fix vtip to maximum (vtip2), and determine R3, R4 for Omegamin, Omegamax
+        '''
         vtip1, vtip2 = self.statistical_boundaries['vtip']
         Omega1, Omega2 = self.statistical_boundaries['Omega']
        
@@ -43,6 +85,11 @@ class DesignSpace(object):
         return R1, R2, R3, R4
         
     def get_Omegaafovtip_R(self):
+        '''
+        Determine values for Omega as a function of v_tip and R
+        Fix vtip to minimum (vtip1), and determine Omega1, Omega2 for Rmin, Rmax
+        Fix vtip to maximum (vtip2), and determine Omega3, Omega4 for Rmin, Rmax
+        '''
         vtip1, vtip2 = self.statistical_boundaries['vtip']
         R1, R2 = self.statistical_boundaries['R']
         
@@ -54,6 +101,7 @@ class DesignSpace(object):
         return Omega1, Omega2, Omega3, Omega4
         
     def get_Rafomyu_Omega(self):
+        ''' same as get_Rafovtip_Omega but for advance ratio myu '''
         myu1, myu2 = self.statistical_boundaries['myu']
         Omega1, Omega2 = self.statistical_boundaries['Omega']
         
@@ -65,6 +113,7 @@ class DesignSpace(object):
         return R1, R2, R3, R4
         
     def get_Omegaafomyu_R(self):
+        ''' same as get_Omegaafovtip_R but for advance ratio myu '''
         myu1, myu2 = self.statistical_boundaries['myu']        
         R1, R2 = self.statistical_boundaries['R']
         
@@ -76,6 +125,11 @@ class DesignSpace(object):
         return Omega1, Omega2, Omega3, Omega4
         
     def get_Rafosigma_c(self):
+        '''
+        Determine values for R as a function of sigma and c
+        Fix sigma to minimum (sigma), and determine R1, R2 for cmin, cmax
+        Fix sigma to maximum (sigma), and determine R3, R4 for cmin, cmax
+        '''
         c1, c2 = self.statistical_boundaries['c']
         sigma1, sigma2 = self.statistical_boundaries['sigma']
         
@@ -87,6 +141,11 @@ class DesignSpace(object):
         return R1, R2, R3, R4
 
     def get_cafosigma_R(self):
+        '''
+        Determine values for c as a function of sigma and R
+        Fix sigma to minimum (sigma), and determine c1, c2 for Rmin, Rmax
+        Fix sigma to maximum (sigma), and determine c3, c4 for Rmin, Rmax
+        '''
         R1, R2 = self.statistical_boundaries['R']
         sigma1, sigma2 = self.statistical_boundaries['sigma']
         
@@ -98,6 +157,7 @@ class DesignSpace(object):
         return c1, c2, c3, c4
         
     def get_RafoA_c(self):
+        ''' same as get_Rafosigma_c but for aspect ratio A '''
         c1, c2 = self.statistical_boundaries['c']
         A1, A2 = self.statistical_boundaries['A']
         
@@ -109,6 +169,7 @@ class DesignSpace(object):
         return R1, R2, R3, R4
         
     def get_cafoA_R(self):
+        ''' same as get_cafosigma_R but for aspect ratio A '''
         R1, R2 = self.statistical_boundaries['R']
         A1, A2 = self.statistical_boundaries['A']
         
@@ -119,11 +180,46 @@ class DesignSpace(object):
         
         return c1, c2, c3, c4 
         
+    def get_OmegaafoCts_Rc(self, R, c):
+        # take R-c design space, use to determine Omega = f(Ct/sigma, R, c)
+        Cts1, Cts2 = self.statistical_boundaries['bl']
+        
+        Omega1 = np.sqrt(self.W/(R**3*self.get_rho(self.h)*2*self.Nb*c*Cts1)) 
+        Omega2 = np.sqrt(self.W/(R**3*self.get_rho(self.h)*2*self.Nb*c*Cts2))
+        
+        return Omega1, Omega2
+        
+    def get_cafoCts_ROmega(self, R, Omega):
+        # take R-Omega design space, use to determine Omega = f(Ct/sigma, R, Omega)
+        Cts1, Cts2 = self.statistical_boundaries['bl']
+        
+        c1 = self.W/(R**3*self.get_rho(self.h)*2*self.Nb*Omega**2*Cts1)
+        c2 = self.W/(R**3*self.get_rho(self.h)*2*self.Nb*Omega**2*Cts2)
+        
+        return c1, c2
+        
     def determine_borders(self, Rv, Rm, Omegav, Omegam, Rs, RA, cs, cA):
-        # v -> vtip, m -> myu 
+        '''
+        Determine the lines that will determine the borders of the design space.
+        
+        Parameters
+        ----------
+        Rv, Rm, Omegav, Omegam, Rs, RA, cs, cA: array_like
+            A 1x4 array with the one axis coordinates of the box constraining the 
+            design space. The other axis is the min/max allowable in the 
+            statistical boundaries. 
+            suffixes: v -> vtip, m -> myu, s -> sigma, A -> A, 1 -> minimum, 2 -> maximum
+        
+        
+        Returns
+        -------
+        ((xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2), 
+         (xsRs1, xsRs2, xsRA1, xsRA2, xscs1, xscs2, xscA1, xscA2),) : array_like
+            The arrays constructed are 50 length between the minimum and maximum values
+            obtained from each constraint (get_XXXafoX_XX methods).
+        '''        
         R1, R2 = self.statistical_boundaries['R']
         Omega1, Omega2 = self.statistical_boundaries['Omega']
-        xs = np.linspace(R1, R2)
         
         # R-Omega relations
         xsOv1 = np.linspace(Omegav[1], Omegav[2], 50)
@@ -143,10 +239,10 @@ class DesignSpace(object):
         xsRs2 = np.linspace(Rs[2], Rs[3], 50)
         
         xsRA1 = np.linspace(RA[0], RA[1], 50)
-        xsRA2 = np.linspace(RA[2], RA[3], 50)
+        xsRA2 = np.linspace(RA[3], RA[2], 50)
         
         xscs1 = np.linspace(cs[0], cs[1], 50)
-        xscs2 = np.linspace(cs[2], cs[3], 50)
+        xscs2 = np.linspace(cs[3], cs[2], 50)
 
         xscA1 = np.linspace(cA[1], cA[0], 50)
         xscA2 = np.linspace(cA[3], cA[2], 50)
@@ -220,6 +316,39 @@ class DesignSpace(object):
     def get_available_space(self, coordsX, coordsY, coordsZ, xsRO, xsRc):
         # rip python usage
         # some of the lines are still backwards, (currently) they do not constrain the design space at all
+        '''
+        Determine the design space of the HAMRAC.
+        Checks each coordinate such that it is above the minimum value constraint under that value,
+        and below the maximum value constraint under that value.
+        R-Omega plot is x-y; R-c plot is x-z. y-z space is assumed and does not further constrain the space 
+        Sadly, not applicable for real estate         
+        
+        Example: R=5, Omega=40. 
+            Check that point (5,40) is to the right of line xsRv1 and to the left of line xsRv2
+            xsRv1 is a series of R values, and is indexed by the col value, as the col value 
+            checks where the xsRv1 line is in Y. This gives the R value (in x) at the desired Y index
+            xsOv1 is a series of Omega values, and is indexed by the row value, as the row value
+            checks where the xsOv1 line is in X. This gives the Omega value (in y) at the desired X index
+            Roughly speaking, check the X coordinate for changes in Y (O[row]), and
+            check the Y coordinate for changes in X (R[col]).            
+            For 1 suffixes, R, Omega, c must be larger
+            For 2 suffixes, R, Omega, c must be smaller
+            
+        Parameters
+        ----------
+        coordsX : array_like
+            An array of the coordinates between Rmin and Rmax
+        coordsY : array_like
+            An array of the coordinates between Omegamin and Omegamax
+        coordsZ : array_like
+            An array of the coordinates between cmin and cmax.
+        xsRO : array_like
+            A series of arrays corresponding to the constraint coordinates 
+            determined from self.determine_borders for the R-Omega plot
+        xsRc : array_like
+            A series of arrays corresponding to the constraint coordinates
+            determined from self.determine_borders for the R-c plot
+        '''        
         xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2 = xsRO
         xsRs1, xsRs2, xsRA1, xsRA2, xscs1, xscs2, xscA1, xscA2 = xsRc
         R1, R2 = self.statistical_boundaries['R']
@@ -244,6 +373,18 @@ class DesignSpace(object):
         return feasible_cells_RO, feasible_cells_Rc
         
     def plot_boundaries(self, Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs):
+        '''
+        Determine the borders based on given parameters, then create a plot of them, then
+        determine the available design space and create a scattergraph of them
+        
+        Parameters
+        ----------
+            Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs : array_like
+                A series of arrays to form the boxes for the constraints. Each array
+                is 4 in length, and represents the one axis coordinates of the box
+                The other axis coordinates are set to min/max of the 'other' parameter
+                Other ->: R-Omega; R-c
+        '''        
         Rmin, Rmax = self.statistical_boundaries['R']
         Omegamin, Omegamax = self.statistical_boundaries['Omega']
         cmin, cmax = self.statistical_boundaries['c']
@@ -268,6 +409,9 @@ class DesignSpace(object):
         R2opt = coordsX[dspaceRc[:,0]]
         copt = coordsZ[dspaceRc[:,1]]
         
+#        Cts1 = self.get_OmegaafoCts_Rc(R2opt, copt)
+#        Cts2 = self.get_cafoCts_ROmega(Ropt, Oopt)
+        
         fig = plt.figure()
 #        axRO = fig.add_subplot(111, projection='3d')
         axRO = fig.add_subplot(111)
@@ -275,7 +419,7 @@ class DesignSpace(object):
         plt.grid(which='major')
         plt.xlabel('R [m]')
         plt.ylabel('Omega [rad/s]')
-#        plt.xlim(3, 8.5)
+        plt.xlim(3, 9)
 #        plt.ylim(22, 50)
         
         axRO.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='R, Omega constraints')
@@ -284,7 +428,9 @@ class DesignSpace(object):
         axRO.plot((Rm1, Rm2, Rm3, Rm4, Rm1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='myu, R constraints')  
         axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegam1, Omegam2, Omegam3, Omegam4, Omegam1), label='myu, Omega constraints')        
         
-        plt.scatter(Ropt, Oopt, s=2)
+        plt.scatter(Ropt, Oopt, s=2)        
+#        plt.scatter(R2opt, Cts1[0])
+#        plt.scatter(R2opt, Cts1[1])
 
         plt.legend()
         plt.savefig('desspaceRO.png')
@@ -296,7 +442,7 @@ class DesignSpace(object):
         plt.grid(which='major')
         plt.xlabel('R [m]')
         plt.ylabel('c [m]')
-#        plt.xlim(3, 10)
+        plt.xlim(3, 9)
 #        plt.ylim(0.1, 0.5)
 
         axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cmin, cmin, cmax, cmax, cmin))
@@ -305,38 +451,14 @@ class DesignSpace(object):
         axRc.plot((RA1, RA2, RA3, RA4, RA1), (cmin, cmax, cmax, cmin, cmin), label='A, R constraints')
         axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cA1, cA2, cA3, cA4, cA1), label='A, c constraints')        
         
-        plt.scatter(R2opt, copt, s=2)        
+        plt.scatter(R2opt, copt, s=2)  
+#        plt.scatter(Ropt, Cts2[0])
+#        plt.scatter(Ropt, Cts2[1])
+        
         plt.legend(loc='lower right')
         plt.savefig('desspaceRc.png')
         plt.show()
         
-                    
 HAMRspace = DesignSpace()
 data = HAMRspace.compare_statistics()
 HAMRspace.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1])
-#R1, R2 = HAMRspace.statistical_boundaries['R']
-#Omega1, Omega2 = HAMRspace.statistical_boundaries['Omega']
-#c1, c2 = HAMRspace.statistical_boundaries['c']
-#coordsX = np.linspace(R1, R2)
-#coordsY = np.linspace(Omega1, Omega2)
-#coordsZ = np.linspace(c1, c2)
-#xsRO, xsRc = HAMRspace.determine_borders(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1])
-#xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2 = xsRO
-#xsRs1, xsRs2, xsRA1, xsRA2, xscs1, xscs2, xscA1, xscA2 = xsRc
-##Ovb1, Ovb2, Rvb1, Rvb2, Omb1, Omb2, Rmb1, Rmb2 = RVB
-##plt.plot(RVB[2], Os, RVB[3], Os, Rs, RVB[0], Rs, RVB[1])
-#
-#dspaceRO, dspaceRc = HAMRspace.get_available_space(coordsX, coordsY, coordsZ, xsRO, xsRc)
-#dspaceRO = np.array(dspaceRO)
-#dspaceRc = np.array(dspaceRc)
-#Ropt = coordsX[dspaceRO[:,0]]
-#Oopt = coordsY[dspaceRO[:,1]]
-#
-#plt.scatter(Ropt, Oopt)
-#
-#plt.figure()
-#R2opt = coordsX[dspaceRc[:,0]]
-#copt = coordsZ[dspaceRc[:,1]]
-#
-#plt.scatter(R2opt, copt)
-
