@@ -123,10 +123,9 @@ class EngineSpider(object):
         ''' Manually add an engine to the engines property '''
         self.engines.append(engine)
         
-    def select_engine(self, P_hov, h, v_cl0):
+    def select_engine(self, P_hov, h):
         '''
-        Choose the "best" engine. "Best" (currently) is defined as the engine with
-        the smallest available power that meets power requirements in hover at altitude
+        Select the engine that meets the given power requirements providing the smallest power
         
         Parameters
         ----------
@@ -134,8 +133,6 @@ class EngineSpider(object):
             The hover power, in W
         h : float
             The altitude of the engine for regulation 1 (TO)
-        v_cl0 : float
-            The climb velocity at hover          
             
         Returns
         -------
@@ -202,4 +199,4 @@ ATwinstar = B206BR
 LeonardoAW119KX = B407
 BChinook = Engine(3631, 'Boeing Chinook CH47-F (Block 2)', 'Tandem', size=(1.196, 0.615), mass=377)
 
-[engineoptions.add_engine(i) for i in [B206BR, B212, B230, B407, ATwinstar, LeonardoAW119KX, BChinook]]
+#[engineoptions.add_engine(i) for i in [B206BR, B212, B230, B407, ATwinstar, LeonardoAW119KX, BChinook]]

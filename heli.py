@@ -74,30 +74,35 @@ class SRheli(object):
         self.P_a = P_e*eta_m
         self.engine_choice = None
         
-    @staticmethod 
-    def convert(Nr, Nb, R, c, Omega):
-        '''
-        Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
-        
-        Parameters
-        ----------
-        Nr : int
-            Number of rotors
-        Nb : int
-            Number of blades (per rotor)
-        R : float
-            Blade radius
-        c : float
-            Blade chord length
-        Omega : float
-            Angular velocity of the rotor
-            
-        Returns
-        -------
-        Nr, Nb, R, c, Omega equivalents for a coaxial rotor
-        
-        '''
-        return 2, Nb//2, R/np.sqrt(2), c/np.sqrt(2), Omega*np.sqrt(2)
+    def __str__(self):
+        return (self.name, self.Nr, self.Nb, self.W, self.h, self.R, self.c, 
+                self.f, self.P_e, self.eta_m, self.Omega, self.CDS, self.CDp_bar, 
+                self.k, self.P_a, self.engine_choice)
+                
+#    @staticmethod 
+#    def convert(Nr, Nb, R, c, Omega):
+#        '''
+#        Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
+#        
+#        Parameters
+#        ----------
+#        Nr : int
+#            Number of rotors
+#        Nb : int
+#            Number of blades (per rotor)
+#        R : float
+#            Blade radius
+#        c : float
+#            Blade chord length
+#        Omega : float
+#            Angular velocity of the rotor
+#            
+#        Returns
+#        -------
+#        Nr, Nb, R, c, Omega equivalents for a coaxial rotor
+#        
+#        '''
+#        return 2, Nb/2, R/np.sqrt(2), c/np.sqrt(2), Omega*np.sqrt(2)
         
     def reset_values(self):
         '''Reset all the parameters of the HAMRAC to their initial ones'''
@@ -113,7 +118,7 @@ class SRheli(object):
         return (15+271.16-1.983*h/304.8)
         
     def get_a(self):
-        return np.sqrt(self.gamma, self.R, self.get_T(self.h))
+        return np.sqrt(self.gamma * 287 * self.get_T(self.h))
         
     def get_bl(self, v_air=v_cr):
         v_tip = self.v_tip + v_air
@@ -175,11 +180,11 @@ class SRheli(object):
         self.P_a = 2*engine.determine_power_at_altitude(self.h)
         self.P_e = engine.P_sl
 
-    def plot_val(self, x, y, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None):
+    def plot_val(self, x, y, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None, fname=None):
         '''Plot x against y'''
         plt.figure()
         plt.grid()
-        
+                    
         if not xlim: xlim = (0, max(x))
         if not ylim: ylim = (0, max(y))
         plt.xlim(xlim)    
@@ -187,21 +192,52 @@ class SRheli(object):
         
         if get_min:
             xmin, ymin = self.get_min(x, y)
-            plt.axhline(ymin, 0, xmin/xlim[1])#, linestlye='dotted')
-            plt.axvline(xmin, 0, ymin/ylim[1])#, linestyle='dotted')
+            plt.axhline(ymin, 0, xmin/xlim[1], label='y= %s' % str(ymin), linestyle='dotted')
+            plt.axvline(xmin, 0, ymin/ylim[1], label='x= %s' % str(xmin), linestyle='dotted')
         
         if title: plt.title(title)
         if xlabel: plt.xlabel(xlabel)
         if ylabel: plt.ylabel(ylabel)
         plt.plot(x, y)
-        plt.show()
-    
+        
+        plt.legend(loc='upper right')
+        if fname: plt.savefig(fname)
+#        plt.show()
+
+    def plot_vals(self, x, ys, labels=None, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None, fname=None):
+        '''Plot x against ys'''
+        plt.figure()
+        plt.grid()
+                    
+        for ind, y in enumerate(ys):
+            if xlim: plt.xlim(xlim)    
+            if ylim: plt.ylim(ylim)
+            
+            if get_min:
+                xmin, ymin = self.get_min(x, y)
+                plt.axhline(ymin, 0, xmin/xlim[1], label='y%i= %s' % (ind, str(ymin)), linestyle='dotted')
+                plt.axvline(xmin, 0, ymin/ylim[1], label='x%i= %s' % (ind, str(xmin)), linestyle='dotted')
+            
+            if not labels:
+                label='Curve%i' % ind
+            else:
+                label=labels[ind]
+
+            plt.plot(x, y, label=label)
+        
+        if title: plt.title(title)
+        if xlabel: plt.xlabel(xlabel)
+        if ylabel: plt.ylabel(ylabel)
+        plt.legend(loc='upper right')
+        if fname: plt.savefig(fname)
+#        plt.show()
+        
     @staticmethod
     def get_min(x, y):
         ymin = min(y)
         xmin = x[np.where(y==ymin)]
         return xmin, ymin
-    
+        
     def gen_pcurve(self, v, Pto, Pi, Ppd, Ppar, figtitle, fname):
         '''
         Generate the power curve
@@ -253,6 +289,7 @@ class SRheli(object):
         plt.axvline(v_A, 0, Pmin/Pto.max()/yscale, label='vpmin: %i m/s' % int(v_A), color='brown', linestyle='dashed')
         plt.axhline(Pmin, 0, v_A/v.max()/xscale, label='Pmin: %i kW' % int(Pmin), color='brown', linestyle='dotted')
         plt.legend(loc='lower right')
+        plt.tight_layout()
         if fname: plt.savefig(fname)
         plt.show()
 
@@ -312,7 +349,7 @@ class SRheli(object):
         
     def determineP_to(self, v_air, P_to0=None):
         ''' 
-        Determine the total power required of a helicopter in level, forward flights
+        Determine the total power required of a helicopter in level, forward flight
         
         Parameters
         ----------
@@ -341,22 +378,21 @@ class SRheli(object):
         
         # velocity of the air seen by the heli
         Pexcess = 0 if P_to0 is None else self.P_a*1000 - P_to0
-        v_cl_uncor = 2*Pexcess/self.W
-        v_cl = v_cl_uncor
-        v_cl_cor = (1+(1/(v_cl_uncor/(np.sqrt(self.W/2./self.get_rho(self.h)/np.pi/self.R**2))+1)))  # https://apps.dtic.mil/dtic/tr/fulltext/u2/a061671.pdf
-        v_cl /= v_cl_cor        
+        v_cl_uncor = Pexcess/self.W  # currently based on energy analysis from navy test pilot manual
+#        v_cl = v_cl_uncor/self.vi_hov + (1./(v_cl_uncor+self.vi_hov))  # from momentum equation in naval test pilot manual, still not sold on this https://apps.dtic.mil/dtic/tr/fulltext/u2/a061671.pdf
+        v_cl = v_cl_uncor        
         v_inf = np.sqrt(v_air**2 + v_cl**2)
         
         # angle of the air seen by the rotor
         myu = v_air/(self.Omega*self.R)
         P_par = self.CDS*0.5*self.rho*v_inf**3
-        alpha_tpp = (Pexcess+P_par)/self.W/v_inf if P_to0 is not None else 0  # cunha 6
+        alpha_tpp = -(Pexcess+P_par)/self.W/v_inf if P_to0 is not None else 0  # cunha 6
         
         vi_cr = self.vi_hov**2 / np.sqrt((v_inf*np.cos(alpha_tpp))**2+(v_inf*np.sin(alpha_tpp)+self.vi_hov)**2)  # from cunha lecture 6; vi_cr is induced velocity in cruise
         P_i = self.W*vi_cr
         P_pd = self.sigma*self.CDp_bar/8 * self.rho * ((self.Omega*self.R)**3) * np.pi*self.R**2 * (1+3*myu**2)  # to be given from Aero department, note: highly sensity to blade radius (R^5)!
         
-        P_to = P_i + P_pd + P_par # marilena
+        P_to = P_i + P_pd + P_par
         
         return (v_air, v_cl), (P_to, P_i, P_pd, P_par)
     
@@ -395,6 +431,9 @@ class SRheli(object):
         Using the EngineSpider object in engine.py, iterate through all engine possibilities
         and select the "best" one. The best one is (currently) determined by whichever 
         engine provides the lowest power at altitude that meets hover power requirements.
+        This is being updated to comply with FAR regulations for twin-engine rotorcraft
+        Regulation 1: Take-off at 6400m
+        Regulation 2: Vertical climb of 0.76m/s at 6705m
         
         Parameters
         ----------
@@ -414,20 +453,22 @@ class SRheli(object):
         far_regulation_TO.seth(6400)
         farTO_v, farTO_power = far_regulation_TO.determineP_to(np.linspace(1, 100))#, P_to0=P_to[0])        
         
-        engine_best, engine_alternatives = engine.engineoptions.select_engine(farTO_power[0][0], far_regulation_TO.h, farTO_v[1])
+        engine_best, engine_alternatives = engine.engineoptions.select_engine(farTO_power[0][0], far_regulation_TO.h)
         self.setEngine(engine_best)
 
         far_regulation_vcl = copy.copy(far_regulation_TO)
         far_regulation_vcl.setname('far-regulation-2, vcl')
         far_regulation_vcl.seth(6705)
         farvcl_v, farvcl_power = far_regulation_vcl.determineP_to(np.linspace(1, 100), P_to0=farTO_power[0])
-
-        if farvcl_v[1][0] < 0.76:
-            print('better engine needed')
-            engine_best, engine_alternatives = engine.engineoptions.select_engine(farvcl_power[0][0], far_regulation_vcl.h, P_to0=farvcl_power[0])
-        
+        farvcl_v_cl, farvcl_power_cl = far_regulation_vcl.determineP_to(np.linspace(1, 100), P_to0=farvcl_power[0])
+                    
+        vcl_req = 0.76  # m/s
+        if farvcl_v_cl[1][0] < vcl_req:
+            vclreq_power = vcl_req / (far_regulation_vcl.vi_hov - vcl_req*far_regulation_vcl.vi_hov)*far_regulation_vcl.W/9.81 + farvcl_power_cl[0][0]
+            engine_best, engine_alternatives = engine.engineoptions.select_engine(vclreq_power, far_regulation_vcl.h)
+            
         self.setTwinEngine(engine_best)
-        print(farvcl_v[1][0])        
+        self.engine_alternatives = engine_alternatives 
         return engine_best, engine_alternatives
             
     def idealPhovafoR(self, Rs=np.linspace(1,11)):
@@ -449,12 +490,12 @@ class SRheli(object):
             The power at hover values calculated
         '''
         self.setR(Rs)
-        self.calc_params()
+        self.calc_params(v_air=0)
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (Rs, P_hovs)
     
-    def idealPhovafoc(self, cs=np.linspace(0.1,0.6)):
+    def idealPhovafoc(self, cs=np.linspace(0.1, 0.6)):
         '''
         This function will generate a graph P_hov(c)
         
@@ -473,12 +514,12 @@ class SRheli(object):
             The power at hover values calculated
         '''
         self.setc(cs)
-        self.calc_params()
+        self.calc_params(v_air=0)
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (cs, P_hovs)
     
-    def idealPhovafoOmega(self, Omegas=np.linspace(15, 25)):
+    def idealPhovafoOmega(self, Omegas=np.linspace(15, 40)):
         '''
         This function will generate a graph P_hov(Omega)
         
@@ -497,7 +538,7 @@ class SRheli(object):
             The power at hover values calculated
         '''
         self.setOmega(Omegas)
-        self.calc_params()
+        self.calc_params(v_air=0)
         vs, P_hovs = self.determineP_to(v_air=0)
         
         return vs, (Omegas, P_hovs)
@@ -527,24 +568,43 @@ class SRheli(object):
         vchars = self.determineV_chars(v=vs[0], P_to=Ps[0])
         return vs, (Rs, vchars)
         
+    def v_charsafoc(self, vs, cs=np.linspace(0.1, 0.6, 50)):
+        '''
+        same as v_charsafoR, but wrt chord c
+        '''
+        cs, vs = np.meshgrid(cs, vs)
+        self.setc(cs)
+        self.calc_params()
+        vs, Ps = self.determineP_to(v_air=vs)
+        vchars = self.determineV_chars(v=vs[0], P_to=Ps[0])
+        return vs, (cs, vchars)
+
+    def v_charsafoOmega(self, vs, Omegas=np.linspace(15, 40, 50)):
+        '''
+        same as v_charsafoR, but wrt angular velocity Omega
+        '''
+        Omegas, vs = np.meshgrid(Omegas, vs)
+        self.setOmega(Omegas)
+        self.calc_params()
+        vs, Ps = self.determineP_to(v_air=vs)
+        vchars = self.determineV_chars(v=vs[0], P_to=Ps[0])
+        return vs, (Omegas, vchars)
+        
     def Mtip_ne_constraint(self):
-        '''
-        thing
-        '''
         #vtip < 0.92 mach @ vne @ 8950m
         vtip_ne = self.v_tip + self.vne
-        Mtip_ne = vtip_ne/self.get_a
+        Mtip_ne = vtip_ne/self.get_a()
         return Mtip_ne < 0.92
         
     def Mtip_cr_constraint(self):
         #Mtip @ cruise @ 8950m < 0.85
         vtip_cr = self.v_tip + self.v_cr
-        Mtip_cr = vtip_cr/self.get_a
+        Mtip_cr = vtip_cr/self.get_a()
         return Mtip_cr < 0.85
     
     def myu_constraint(self):
         #myu < 0.45 in cruise
-        myu = (self.v_cr+self.v_tip) / self.v_cr
+        myu = self.v_tip / self.v_cr
         return myu < 0.45
         
     def bl_constraint(self):
@@ -558,26 +618,26 @@ class Coaxheli(SRheli):
     
     configuration = 'coaxial-rotor'
     iscoax = True
-    zR = 0
+    zD = 0
 
     def __init__(self, *args, **kwargs):
         super(Coaxheli, self).__init__(*args, **kwargs)
         
-        if 'zR' in kwargs.keys():
-            self.set_zR(kwargs['zR'])
+        if 'zD' in kwargs.keys():
+            self.set_zD(kwargs['zD'])
         
         if 'convert' in kwargs.keys() and kwargs['convert']:
             self.convert()
 
-    def set_zR(self, zRs):
-        self.zR = zRs
+    def set_zD(self, zDs):
+        self.zD = zDs
         
     def convert(self): 
         '''
         Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
         '''
         self.Nr = 2 
-        self.Nb = self.Nb//2
+        self.Nb = self.Nb/2
         self.R = self.R*np.sqrt(2)
         self.c = self.c*np.sqrt(2)
         self.Omega = self.Omega/np.sqrt(2)
@@ -588,10 +648,8 @@ class Coaxheli(SRheli):
         '''        
         SR_Nr = 1
         SR_Nb = self.Nb*2
-        SR_R = self.R*np.sqrt(2)
-        SR_c = self.c*np.sqrt(2)
-        SR_Omega = self.Omega/np.sqrt(2)
+        SR_R = self.R/np.sqrt(2)
+        SR_c = self.c/np.sqrt(2)
+        SR_Omega = self.Omega*np.sqrt(2)
         
         return SR_Nr, SR_Nb, SR_R, SR_c, SR_Omega
-
-

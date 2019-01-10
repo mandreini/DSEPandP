@@ -19,7 +19,7 @@ class DesignSpace(object):
         self.v_cr = 140/1.9
         self.vmax = self.v_cr*1.15 
         self.vne = self.vmax*1.1
-        self.Nb = 3
+        self.Nb = 8
         self.W = 2500*9.81
         self.h = 8950
 
@@ -30,44 +30,56 @@ class DesignSpace(object):
             'Nb': [3, 4],
             'cbar': [0.04, 0.08],  # c/R
             'A': [12.5, 25],  # R/c
-            'sigma': [0.03, 0.12],  # Nb*c/pi/R
-            'bl': [0.07, 0.1],  #  W/pi/R/R/rho/vtip/vtip/sigma 
-            'vtip': [180, 220],  # Omega * R
-            'myu': [0.25, 0.4],  # vair / vtip
-        }        
-       
-    def Mtip_ne_constraint(self):
-        ''' vtip < 0.92 mach @ vne @ 8950m '''
-        
-        vtip_ne = self.v_tip + self.vne
-        Mtip_ne = vtip_ne/self.get_a
-        return Mtip_ne < 0.92
-        
-    def Mtip_cr_constraint(self):
-        ''' Mtip @ cruise @ 8950m < 0.85 '''
-        vtip_cr = self.v_tip + self.v_cr
-        Mtip_cr = vtip_cr/self.get_a
-        return Mtip_cr < 0.85
-    
-    def myu_constraint(self):
-        ''' myu < 0.45 in cruise '''
-        myu = (self.v_cr+self.v_tip) / self.v_cr
-        return myu < 0.45
-        
-    def bl_constraint(self):
-        ''' bl < 0.12 '''
-        v_tip = self.v_cr+self.v_tip
-        s = 0.6
-        bl = s*self.W*9.81 / (self.c*self.Nb*self.R*v_tip**2)
-        return bl < 0.12
+            'sigma': [0.03*2, 0.12*2],  # Nb*c/pi/R
+            'bl': [0.07, 0.1],  #  s*Mto*g/sigma/c/Nb/R/vtip
+            'vtip': [156, 193],  # Omega * R
+            'myu': [0.25*np.sqrt(2), 0.45],  # vair / vtip
+        }       
 
-    def calca(self):
-        return np.sqrt(self.gamma, self.R, self.get_T(self.h))
+    def Mtip_cr_constraint(self, R, c, Omega):
+        '''Tip Mach at cruise'''
+        vtip_cr = Omega*R + self.v_cr
+        Mtip_cr = vtip_cr/self.get_a(self.h)
+        return Mtip_cr
+       
+    def Mtip_ne_constraint(self, R, c, Omega):
+        '''Tip Mach at never exceed speed'''
+        vtip_ne = Omega*R + self.vne
+        Mtip_ne = vtip_ne/self.get_a(self.h)
+        return Mtip_ne
+    
+    def myu_constraint(self, R, c, Omega):
+        '''Advance ratio, v_cr/v_tip'''
+        myu = self.v_cr / (self.v_cr+Omega*R) 
+        return myu 
+        
+    def bl_constraint(self, R, c, Omega):
+        '''blade loading'''
+#        v_tip = Omega*R + self.v_cr
+#        s = 0.6
+#        sigma = self.Nb * c / np.pi / R
+#        bl = s*self.W / (sigma*c*self.Nb*R*v_tip**2)
+        Cts = self.W / (self.get_rho(8900) * self.Nb * c * R * (Omega*R)**2)
+        return Cts
+        
+    def det_constraints(self, Mtip_cr, Mtip_ne, myu, bl):
+        ''' Mtip @ cruise @ 8950m < 0.85 '''
+        ''' vtip < 0.92 mach @ vne @ 8950m '''
+        ''' myu < 0.45 in cruise '''
+        ''' bl < 0.12 '''
+        return Mtip_cr < 0.85, Mtip_ne < 0.92, myu < 0.45, bl < 0.12
+
+    def get_a(self, h):
+        return np.sqrt(1.4 * 287 * self.get_T(h))
         
     @staticmethod
     def get_rho(h):
         return 1.225*288.16/(15+271.16-1.983*h/304.8)*(1-(0.001981*h/0.3048)/288.16)**5.256
 
+    @staticmethod
+    def get_T(h):
+            return (15+271.16-1.983*h/304.8)
+          
     def get_Rafovtip_Omega(self):
         '''
         Determine values for R as a function of v_tip and Omega
@@ -162,9 +174,9 @@ class DesignSpace(object):
         A1, A2 = self.statistical_boundaries['A']
         
         R1 = A1*c1
-        R2 = A1*c2
+        R2 = A2*c1
         R3 = A2*c2
-        R4 = A2*c1
+        R4 = A1*c2
         
         return R1, R2, R3, R4
         
@@ -193,8 +205,8 @@ class DesignSpace(object):
         # take R-Omega design space, use to determine Omega = f(Ct/sigma, R, Omega)
         Cts1, Cts2 = self.statistical_boundaries['bl']
         
-        c1 = self.W/(R**3*self.get_rho(self.h)*2*self.Nb*Omega**2*Cts1)
-        c2 = self.W/(R**3*self.get_rho(self.h)*2*self.Nb*Omega**2*Cts2)
+        c1 = self.W/ self.get_rho(self.h)/self.Nb/R/Cts1/(Omega*R)**2               
+        c2 = self.W/ self.get_rho(self.h)/self.Nb/R/Cts2/(Omega*R)**2        
         
         return c1, c2
         
@@ -222,30 +234,30 @@ class DesignSpace(object):
         Omega1, Omega2 = self.statistical_boundaries['Omega']
         
         # R-Omega relations
-        xsOv1 = np.linspace(Omegav[1], Omegav[2], 50)
-        xsOv2 = np.linspace(Omegav[3], Omegav[0], 50)
+        xsOv1 = np.linspace(Omegav[0], Omegav[1], 50)
+        xsOv2 = np.linspace(Omegav[3], Omegav[2], 50)
 
         xsOm1 = np.linspace(Omegam[1], Omegam[2])
-        xsOm2 = np.linspace(Omegam[3], Omegam[0])
+        xsOm2 = np.linspace(Omegam[0], Omegam[3])
         
-        xsRv1 = np.linspace(Rv[1], Rv[2], 50)
-        xsRv2 = np.linspace(Rv[0], Rv[3], 50)
+        xsRv1 = np.linspace(Rv[0], Rv[1], 50)
+        xsRv2 = np.linspace(Rv[3], Rv[2], 50)
         
         xsRm1 = np.linspace(Rm[1], Rm[2], 50)
-        xsRm2 = np.linspace(Rm[3], Rm[0], 50)
+        xsRm2 = np.linspace(Rm[0], Rm[3], 50)
 
         # R-c relations
-        xsRs1 = np.linspace(Rs[0], Rs[1], 50)
-        xsRs2 = np.linspace(Rs[2], Rs[3], 50)
+        xsRs1 = np.linspace(Rs[1], Rs[2], 50) # works
+        xsRs2 = np.linspace(Rs[0], Rs[3], 50) # works
         
-        xsRA1 = np.linspace(RA[0], RA[1], 50)
-        xsRA2 = np.linspace(RA[3], RA[2], 50)
+        xsRA1 = np.linspace(RA[0], RA[3], 50) # works
+        xsRA2 = np.linspace(RA[1], RA[2], 50) # works
         
-        xscs1 = np.linspace(cs[0], cs[1], 50)
-        xscs2 = np.linspace(cs[3], cs[2], 50)
+        xscs1 = np.linspace(cs[0], cs[3], 50) # works
+        xscs2 = np.linspace(cs[1], cs[2], 50) # works
 
-        xscA1 = np.linspace(cA[1], cA[0], 50)
-        xscA2 = np.linspace(cA[3], cA[2], 50)
+        xscA1 = np.linspace(cA[1], cA[0], 50) # works
+        xscA2 = np.linspace(cA[2], cA[3], 50) # works
 
         return ((xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2), 
 #                (Ovb1, Ovb2, Rvb1, Rvb2, Omb1, Omb2, Rmb1, Rmb2),
@@ -267,46 +279,7 @@ class DesignSpace(object):
         cs1, cs2, cs3, cs4 = self.get_cafosigma_R()
         RA1, RA2, RA3, RA4 = self.get_RafoA_c()
         cA1, cA2, cA3, cA4 = self.get_cafoA_R()
-        
-#        fig = plt.figure()
-##        axRO = fig.add_subplot(111, projection='3d')
-#        axRO = fig.add_subplot(111)
-#        plt.title("Design Space for the HAMRAC")
-#        plt.grid(which='major')
-#        plt.xlabel('R [m]')
-#        plt.ylabel('Omega [rad/s]')
-##        plt.xlim(3, 8.5)
-##        plt.ylim(22, 50)
-#        
-#        axRO.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='R, Omega constraints')
-#        axRO.plot((Rv1, Rv2, Rv3, Rv4, Rv1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='vtip, R constraints')  
-#        axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegav1, Omegav2, Omegav3, Omegav4, Omegav1), label='vtip, Omega constraints')        
-#        axRO.plot((Rm1, Rm2, Rm3, Rm4, Rm1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='myu, R constraints')  
-#        axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegam1, Omegam2, Omegam3, Omegam4, Omegam1), label='myu, Omega constraints')        
-##        
-#        plt.legend()
-#        plt.show()
-#        
-#        fig = plt.figure()
-#        axRc = fig.add_subplot(111)#, projection='3d')
-#        plt.title("Design Space for the HAMRAC")
-#        plt.grid(which='major')
-#        plt.xlabel('R [m]')
-#        plt.ylabel('c [m]')
-##        plt.xlim(3, 10)
-##        plt.ylim(0.1, 0.5)
-#
-#        axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cmin, cmin, cmax, cmax, cmin))
-#        axRc.plot((Rs1, Rs2, Rs3, Rs4, Rs1), (cmin, cmax, cmax, cmin, cmin), label='sigma, R constraints')
-#        axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cs1, cs2, cs3, cs4, cs1), label='sigma, c constraints')        
-#        axRc.plot((RA1, RA2, RA3, RA4, RA1), (cmin, cmax, cmax, cmin, cmin), label='A, R constraints')
-#        axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cA1, cA2, cA3, cA4, cA1), label='A, c constraints')        
-#        
-#        # find borders of the (current) design space with a (series of) np.where calls -> where above/below lines
-#        # use these borders as inputs into the blade loading limit twice, once for each graph (x no of limits)
-#        plt.legend(loc='lower right')
-#        plt.show()
-        
+                
         return (((Rv1, Rv2, Rv3, Rv4), (Omegav1, Omegav2, Omegav3, Omegav4)),
                 ((Rm1, Rm2, Rm3, Rm4), (Omegam1, Omegam2, Omegam3, Omegam4)),
                 ((Rs1, Rs2, Rs3, Rs4), (cs1, cs2, cs3, cs4)),
@@ -356,23 +329,24 @@ class DesignSpace(object):
         c1, c2 = self.statistical_boundaries['c']
         feasible_cells_RO = []
         feasible_cells_Rc = []
+ 
         
         for row in range(len(coordsX)):
             for col in range(len(coordsY)):
                 R, O, c = coordsX[row], coordsY[col], coordsZ[col]
                 
-                if (R > xsRv1[col] and R < xsRv2[col] and R > xsRm1[col] and R < xsRm2[col]):
-                    if O > xsOv1[row] and O < xsOv2[row] and O > xsOm1[row] and O < xsOm2[row]:
+                if R > xsRv1[col] and R > xsRm1[col] and O > xsOv1[row] and O > xsOm1[row]:
+                    if R < xsRv2[col]  and R < xsRm2[col] and O < xsOv2[row] and O < xsOm2[row]:
                         feasible_cells_RO.append([row, col])
                         
-                if (R > xsRs1[col] and R < xsRs2[col] and R > xsRA1[col] and R < xsRA2[col]):
-                    if c > xscs1[row] and c < xscs2[row] and c > xscA1[row] and c < xscA2[row]:
+                if R > xsRs1[col] and R > xsRA1[col] and c > xscs1[row] and c > xscA1[row]:
+                    if R < xsRs2[col] and R < xsRA2[col] and c < xscs2[row] and c < xscA2[row]:
                         feasible_cells_Rc.append([row, col])
 
         
         return feasible_cells_RO, feasible_cells_Rc
         
-    def plot_boundaries(self, Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs):
+    def plot_boundaries(self, Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs, idealR=None, idealc=None, idealOmega=None):
         '''
         Determine the borders based on given parameters, then create a plot of them, then
         determine the available design space and create a scattergraph of them
@@ -401,16 +375,19 @@ class DesignSpace(object):
         xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2 = xsRO
         xsRs1, xsRs2, xsRA1, xsRA2, xscs1, xscs2, xscA1, xscA2 = xsRc
         
-        dspaceRO, dspaceRc = HAMRspace.get_available_space(coordsX, coordsY, coordsZ, xsRO, xsRc)
+        dspaceRO, dspaceRc= HAMRspace.get_available_space(coordsX, coordsY, coordsZ, xsRO, xsRc)
         dspaceRO = np.array(dspaceRO)
         dspaceRc = np.array(dspaceRc)
+        
         Ropt = coordsX[dspaceRO[:,0]]
         Oopt = coordsY[dspaceRO[:,1]]
         R2opt = coordsX[dspaceRc[:,0]]
         copt = coordsZ[dspaceRc[:,1]]
+#        
+#        blmin = np.min(LHS, axis=0)
         
-#        Cts1 = self.get_OmegaafoCts_Rc(R2opt, copt)
-#        Cts2 = self.get_cafoCts_ROmega(Ropt, Oopt)
+#        Cts1 = self.get_OmegaafoCts_Rc(blmin[:,0], blmin[:,1])
+        Cts2 = self.get_cafoCts_ROmega(Ropt, Oopt)
         
         fig = plt.figure()
 #        axRO = fig.add_subplot(111, projection='3d')
@@ -423,17 +400,19 @@ class DesignSpace(object):
 #        plt.ylim(22, 50)
         
         axRO.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='R, Omega constraints')
-        axRO.plot((Rv1, Rv2, Rv3, Rv4, Rv1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='vtip, R constraints')  
-        axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegav1, Omegav2, Omegav3, Omegav4, Omegav1), label='vtip, Omega constraints')        
+        axRO.plot((Rv1, Rv2, Rv3, Rv4, Rv1), (Omegamin, Omegamax, Omegamax, Omegamin, Omegamin), label='vtip, R constraints')  
+        axRO.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (Omegav1, Omegav2, Omegav3, Omegav4, Omegav1), label='vtip, Omega constraints')        
         axRO.plot((Rm1, Rm2, Rm3, Rm4, Rm1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='myu, R constraints')  
         axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegam1, Omegam2, Omegam3, Omegam4, Omegam1), label='myu, Omega constraints')        
         
-        plt.scatter(Ropt, Oopt, s=2)        
+        plt.scatter(Ropt, Oopt, c='#abaaa9', s=2)  
+        if idealR and idealOmega:
+            plt.scatter(idealR, idealOmega, marker='x', c='y', s=100)
 #        plt.scatter(R2opt, Cts1[0])
 #        plt.scatter(R2opt, Cts1[1])
 
         plt.legend()
-        plt.savefig('desspaceRO.png')
+        plt.savefig('mdo/desspaceRO.png')
         plt.show()
 #        
         fig = plt.figure()
@@ -446,19 +425,29 @@ class DesignSpace(object):
 #        plt.ylim(0.1, 0.5)
 
         axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cmin, cmin, cmax, cmax, cmin))
-        axRc.plot((Rs1, Rs2, Rs3, Rs4, Rs1), (cmin, cmax, cmax, cmin, cmin), label='sigma, R constraints')
-        axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cs1, cs2, cs3, cs4, cs1), label='sigma, c constraints')        
+        axRc.plot((Rs1, Rs2, Rs3, Rs4, Rs1), (cmin, cmin, cmax, cmax, cmin), label='sigma, R constraints')
+        axRc.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (cs1, cs2, cs3, cs4, cs1), label='sigma, c constraints')        
         axRc.plot((RA1, RA2, RA3, RA4, RA1), (cmin, cmax, cmax, cmin, cmin), label='A, R constraints')
-        axRc.plot((Rmin, Rmax, Rmax, Rmin, Rmin), (cA1, cA2, cA3, cA4, cA1), label='A, c constraints')        
+        axRc.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (cA1, cA2, cA3, cA4, cA1), label='A, c constraints')        
         
-        plt.scatter(R2opt, copt, s=2)  
-#        plt.scatter(Ropt, Cts2[0])
+        plt.scatter(R2opt, copt, c='#abaaa9', s=2)  
+        if idealR and idealc:
+            plt.scatter(idealR, idealc, marker='x', c='y', s=200)
+#        plt.scatter(blmin[:,0], Cts2[0])
 #        plt.scatter(Ropt, Cts2[1])
         
         plt.legend(loc='lower right')
-        plt.savefig('desspaceRc.png')
+        plt.savefig('mdo/desspaceRc.png')
         plt.show()
         
 HAMRspace = DesignSpace()
 data = HAMRspace.compare_statistics()
-HAMRspace.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1])
+idealR = 5.55
+idealc = 0.304
+idealOmega = 33
+HAMRspace.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+
+ideals = idealR, idealc, idealOmega
+aerobounds = HAMRspace.Mtip_cr_constraint(*ideals), HAMRspace.Mtip_ne_constraint(*ideals), HAMRspace.myu_constraint(*ideals), HAMRspace.bl_constraint(*ideals)
+validity = HAMRspace.det_constraints(*aerobounds)
+print validity
