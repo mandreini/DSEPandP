@@ -7,7 +7,6 @@ Created on Thu Dec  6 09:26:19 2018
 import abc
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import engine
 import copy
 
@@ -78,6 +77,10 @@ class SRheli(object):
         return (self.name, self.Nr, self.Nb, self.W, self.h, self.R, self.c, 
                 self.f, self.P_e, self.eta_m, self.Omega, self.CDS, self.CDp_bar, 
                 self.k, self.P_a, self.engine_choice)
+                
+    def __repr__(self):
+        return 'Name: %s\nNr: %i\nNb: %i\nh: %f\nR: %f\nc: %f\nOmega: %f\nP_e: %f\nP_a(h): %f\nEngine: %s' % (
+        self.name, self.Nr/2, self.Nb*2, self.h, self.R, self.c, self.Omega, self.P_e, self.P_a, self.engine_choice.name)
                 
 #    @staticmethod 
 #    def convert(Nr, Nb, R, c, Omega):
@@ -178,7 +181,7 @@ class SRheli(object):
     def setTwinEngine(self, engine):
         self.engine_choice = engine
         self.P_a = 2*engine.determine_power_at_altitude(self.h)
-        self.P_e = engine.P_sl
+        self.P_e = 2*engine.P_sl
 
     def plot_val(self, x, y, title=None, xlabel=None, ylabel=None, get_min=False, xlim=None, ylim=None, fname=None):
         '''Plot x against y'''
@@ -456,15 +459,16 @@ class SRheli(object):
         engine_best, engine_alternatives = engine.engineoptions.select_engine(farTO_power[0][0], far_regulation_TO.h)
         self.setEngine(engine_best)
 
-        far_regulation_vcl = copy.copy(far_regulation_TO)
+        far_regulation_vcl = copy.copy(self)
         far_regulation_vcl.setname('far-regulation-2, vcl')
         far_regulation_vcl.seth(6705)
-        farvcl_v, farvcl_power = far_regulation_vcl.determineP_to(np.linspace(1, 100), P_to0=farTO_power[0])
+        farvcl_v, farvcl_power = far_regulation_vcl.determineP_to(np.linspace(1, 100))
         farvcl_v_cl, farvcl_power_cl = far_regulation_vcl.determineP_to(np.linspace(1, 100), P_to0=farvcl_power[0])
                     
         vcl_req = 0.76  # m/s
         if farvcl_v_cl[1][0] < vcl_req:
-            vclreq_power = vcl_req / (far_regulation_vcl.vi_hov - vcl_req*far_regulation_vcl.vi_hov)*far_regulation_vcl.W/9.81 + farvcl_power_cl[0][0]
+#            print('2nd FAR req')
+            vclreq_power = vcl_req / (far_regulation_vcl.vi_hov - vcl_req*far_regulation_vcl.vi_hov)*far_regulation_vcl.W/9.81 + farvcl_power[0][0]
             engine_best, engine_alternatives = engine.engineoptions.select_engine(vclreq_power, far_regulation_vcl.h)
             
         self.setTwinEngine(engine_best)
@@ -636,8 +640,8 @@ class Coaxheli(SRheli):
         '''
         Converts the given single-rotor data into the equivalent (solidity) coaxial rotor data
         '''
-        self.Nr = 2 
-        self.Nb = self.Nb/2
+#        self.Nr = 2 
+#        self.Nb = self.Nb/2
         self.R = self.R*np.sqrt(2)
         self.c = self.c*np.sqrt(2)
         self.Omega = self.Omega/np.sqrt(2)

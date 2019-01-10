@@ -14,9 +14,9 @@ R = 4.46
 c = 0.227
 Omega = 41
 
-R = 6.2*np.sqrt(2)
-c = 0.27*np.sqrt(2)
-Omega = 29/np.sqrt(2)
+#R = 6.2
+#c = 0.27
+#Omega = 29
 
 heliinputs = 'HAMRAC', 2, 3, 1.05*MTOW*9.81, 8950, R, c, 3, 650, 0.95, Omega, 2, 0.012, 1.15
 # 5% added to weight due to the downdraft on the fuselage, must be changed if the actual weight of the rotorcraft becomes relevant
@@ -24,10 +24,10 @@ airspeed = np.arange(1, 120, 1, dtype=float)
 
 #far = heli.Coaxheli('FAR-regulation-check', 1, 6, MTOW*9.81, 6400, 0.457, 3, 650, 0.95, 21.21, 2, 0.012, 1.15, convert=True)
 #SR_HAMRAC = heli.SRheli(*heliinputs)
-marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 1400, 0.95, 21, 3, 0.01, 1.15)
+#marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 2500, 0.95, 21, 3, 0.01, 1.15)
 
-#mp = marilena.powerCurve(airspeed[:80], select_engine=False)
-#mpcl = marilena.powerCurve(airspeed[:80], P_to0=mp[1], select_engine=False)
+#mp = marilena.powerCurve(airspeed, select_engine=False)
+#mpcl = marilena.powerCurve(airspeed, P_to0=mp[1], select_engine=False)
 
 # Single Rotor Sample Power curve
 #level_speed, level_power = SR_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a rotorcraft in level, horizontal, forward flight', fname='powercurves/PowerCurveHAMRACLevel.png')
@@ -36,7 +36,7 @@ marilena = heli.SRheli("Marilena's Example", 1, 4, 90e3, 0, 9.5, 0.457, 3, 1400,
 #climb_vchars = SR_HAMRAC.determineV_chars(airspeed, level_power/1000)
 
 # Coaxial Rotor Power Curve
-coax_HAMRAC = heli.Coaxheli(*heliinputs, zD=0.05, convert=False)
+coax_HAMRAC = heli.Coaxheli(*heliinputs, zD=0.05, convert=True)
 clvl_v, clvl_p = coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power requirements for a coaxial rotorcraft in \nlevel, horizontal, forward flight', fname='powercurves/PowerCurveCoaxLevel.png', select_engine=True)
 #ccl_v, ccl_p = coax_HAMRAC.powerCurve(airspeed, clvl_p, 'Power requirements for a coaxial rotorcraft in \nnon-level, climbing flight', fname='powercurves/PowerCurveCoaxClimb.png', select_engine=False)
 
@@ -50,7 +50,7 @@ clvl_v, clvl_p = coax_HAMRAC.powerCurve(airspeed, P_to0=None, figtitle='Power re
 #cvs, cdata = coax_HAMRAC.idealPhovafoc()
 #coax_HAMRAC.plot_val(cdata[0], cdata[1][0]/1000, title='Optimising power required to hover wrt blade chord', xlabel='Blade chord c [m]', ylabel='P_hov [kW]', get_min=True, fname='mdo/P_hovafoc.png')
 ##
-#Omegavs, Omegadata = coax_HAMRAC.idealPhovafoOmega()
+#Omegavs, Omegadata = coax_HAMRAC.idealPhovafoOmega(np.linspace(1, 40))
 #coax_HAMRAC.plot_val(Omegadata[0], Omegadata[1][0]/1000, title='Optimising power required to hover wrt angular velocity', xlabel='Angular velocity Omega [rad/s]', ylabel='P_hov [kW]', get_min=True, fname='mdo/P_hovafoOmega.png')
 
 # 'ideal' rotorcraft wrt hover power
@@ -58,33 +58,52 @@ i_Phov_coax = copy.copy(coax_HAMRAC)
 #i_Phov_coax.setR(7.73)
 #i_Phov_coax.setc(0.4265)
 #i_Phov_coax.setOmega(29.795)
-i_Phov_coax.setR(5.55*np.sqrt(2))
-i_Phov_coax.setc(0.304*np.sqrt(2))
-i_Phov_coax.setOmega(33/np.sqrt(2))
-i_Phov_coax.seth(3930)
-#i_Phov_coax.convert()
+i_Phov_coax.setR(5.55)
+i_Phov_coax.setc(0.304)
+i_Phov_coax.setOmega(33)
+i_Phov_coax.convert()
 #i_Phov_coax.Nb = 3  # copying coax_HAMRAC copies Nb and Nr, but Nr is then divided by 2 in convert
 i_Phov_vals = i_Phov_coax.reconvert()
 
 HAMRAC_vals = coax_HAMRAC.reconvert()
-#HAMRAC_vals = 1, 6, R, c, Omega
+HAMRAC_vals = 1, 6, R, c, Omega
 
 #validity = i_Phov_coax.Mtip_ne_constraint(), i_Phov_coax.Mtip_cr_constraint(), i_Phov_coax.myu_constraint(), i_Phov_coax.bl_constraint()
-# validity needs.... validation
 ilvl_v, ilvl_p = i_Phov_coax.powerCurve(airspeed, P_to0=None, figtitle="Power requirements for the 'ideal' coaxial rotorcraft in \nlevel, horizontal, forward flight \n'ideal' with respect to minimum hover power", fname='powercurves/PowerCurveidealLevel.png', select_engine=True)
-icl_v, icl_p = i_Phov_coax.powerCurve(airspeed, P_to0=ilvl_p, figtitle="Power requirements for the 'ideal' coaxial rotorcraft in \nnon-level, climbing, forward flight \n'ideal' with respect to minimum hover power", fname='powercurves/PowerCurveidealClimb.png', select_engine=False)
-
-print('P_hov_HAMRAC: %f' % clvl_p[0])
-print('P_hov_ideal: %f' % ilvl_p[0])
-print('Parameter | HAMRAC | ideal')
-#print('Nr        | %i      | %i' % (1, 6))
-#print('Nb        | %i      | %i' % (1, 6))
-print('R         | %s | %s' % (str(HAMRAC_vals[2])[:6], str(i_Phov_vals[2])[:5]))
-print('c         | %s | %s' % (str(HAMRAC_vals[3])[:6], str(i_Phov_vals[3])[:5]))
-print('Omega     | %s | %s' % (str(HAMRAC_vals[4])[:6], str(i_Phov_vals[4])[:5]))
+#icl_v, icl_p = i_Phov_coax.powerCurve(airspeed, P_to0=ilvl_p, figtitle="Power requirements for the 'ideal' coaxial rotorcraft in \nnon-level, climbing, forward flight \n'ideal' with respect to minimum hover power", fname='powercurves/PowerCurveidealClimb.png', select_engine=False)
+#
+#print('P_hov_HAMRAC: %f' % clvl_p[0])
+#print('P_hov_ideal: %f' % ilvl_p[0])
+#print('Parameter | HAMRAC | ideal')
+##print('Nr        | %i      | %i' % (1, 6))
+##print('Nb        | %i      | %i' % (1, 6))
+#print('R         | %s | %s' % (str(HAMRAC_vals[2])[:6], str(i_Phov_vals[2])[:5]))
+#print('c         | %s | %s' % (str(HAMRAC_vals[3])[:6], str(i_Phov_vals[3])[:5]))
+#print('Omega     | %s | %s' % (str(HAMRAC_vals[4])[:6], str(i_Phov_vals[4])[:5]))
 
 # comparison between old and new
 #i_Phov_coax.plot_vals(airspeed, (ilvl_p/1000, clvl_p/1000), labels=('ideal curve', 'current curve'), title='Comparison between current and current ideal rotor design', xlabel='airspeed [m/s]', ylabel='P_hov [kW]', get_min=False, fname='PowerCurveComparison.png')
+
+
+better_HAMRAC = copy.copy(coax_HAMRAC)
+# SR rotor
+better_HAMRAC.setR(6.5)
+better_HAMRAC.setc(0.301)
+better_HAMRAC.setOmega(31) 
+better_HAMRAC.convert()
+
+blvl_v, blvl_p = better_HAMRAC.powerCurve(airspeed)
+better_vals = better_HAMRAC.reconvert()
+
+print('P_hov_HAMRAC: %f' % clvl_p[0])
+print('P_hov_ideal: %f' % ilvl_p[0])
+print('P_hov_better: %f' % blvl_p[0])
+print('Parameter | HAMRAC | ideal | better')
+#print('Nr        | %i      | %i' % (1, 6))
+#print('Nb        | %i      | %i' % (1, 6))
+print('R         | %s | %s | %s' % (str(HAMRAC_vals[2])[:6], str(i_Phov_vals[2])[:5], str(better_vals[2])[:5]))
+print('c         | %s | %s | %s' % (str(HAMRAC_vals[3])[:6], str(i_Phov_vals[3])[:5], str(better_vals[3])[:5]))
+print('Omega     | %s | %s | %s' % (str(HAMRAC_vals[4])[:6], str(i_Phov_vals[4])[:5], str(better_vals[4])[:5]))
 
 # Characteristic airspeed parameter optimisation (2D parameter optimisation)
 # R

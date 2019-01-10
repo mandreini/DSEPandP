@@ -384,11 +384,23 @@ class DesignSpace(object):
         R2opt = coordsX[dspaceRc[:,0]]
         copt = coordsZ[dspaceRc[:,1]]
 #        
-#        blmin = np.min(LHS, axis=0)
         
 #        Cts1 = self.get_OmegaafoCts_Rc(blmin[:,0], blmin[:,1])
         Cts2 = self.get_cafoCts_ROmega(Ropt, Oopt)
         
+        Rset = set(Ropt)
+        Rset = sorted(Rset)  
+        Rlist = list(Ropt)
+        Cts21 = list(Cts2[0])
+        Cts22 = list(Cts2[1])
+        Cts2upper = []
+        Cts2lower = []
+            
+        for Rval in Rset:
+            # list goes the wrong way, need to find last instance of Rval, but cannot list.reverse()
+            Rindleft = Rlist.index(Rval)
+            Cts2upper.append(Cts22[Rindleft])
+
         fig = plt.figure()
 #        axRO = fig.add_subplot(111, projection='3d')
         axRO = fig.add_subplot(111)
@@ -405,7 +417,7 @@ class DesignSpace(object):
         axRO.plot((Rm1, Rm2, Rm3, Rm4, Rm1), (Omegamin, Omegamin, Omegamax, Omegamax, Omegamin), label='myu, R constraints')  
         axRO.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (Omegam1, Omegam2, Omegam3, Omegam4, Omegam1), label='myu, Omega constraints')        
         
-        plt.scatter(Ropt, Oopt, c='#abaaa9', s=2)  
+        plt.scatter(Ropt, Oopt, c='#fff9f6', marker='o', s=2)  
         if idealR and idealOmega:
             plt.scatter(idealR, idealOmega, marker='x', c='y', s=100)
 #        plt.scatter(R2opt, Cts1[0])
@@ -430,11 +442,13 @@ class DesignSpace(object):
         axRc.plot((RA1, RA2, RA3, RA4, RA1), (cmin, cmax, cmax, cmin, cmin), label='A, R constraints')
         axRc.plot((Rmin, Rmin, Rmax, Rmax, Rmin), (cA1, cA2, cA3, cA4, cA1), label='A, c constraints')        
         
-        plt.scatter(R2opt, copt, c='#abaaa9', s=2)  
+        plt.scatter(R2opt, copt, c=[(1, 1, 1, 0) for i in range(len(copt))], s=2)  
         if idealR and idealc:
             plt.scatter(idealR, idealc, marker='x', c='y', s=200)
 #        plt.scatter(blmin[:,0], Cts2[0])
-#        plt.scatter(Ropt, Cts2[1])
+        plt.plot(Ropt, Cts2[1])
+        plt.plot(Ropt, Cts2[0])
+        plt.plot(Rset, Cts2upper)
         
         plt.legend(loc='lower right')
         plt.savefig('mdo/desspaceRc.png')
@@ -442,12 +456,13 @@ class DesignSpace(object):
         
 HAMRspace = DesignSpace()
 data = HAMRspace.compare_statistics()
-idealR = 5.55
-idealc = 0.304
-idealOmega = 33
+idealR = 5.9
+idealc = 0.301
+idealOmega = 31
 HAMRspace.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
 
 ideals = idealR, idealc, idealOmega
 aerobounds = HAMRspace.Mtip_cr_constraint(*ideals), HAMRspace.Mtip_ne_constraint(*ideals), HAMRspace.myu_constraint(*ideals), HAMRspace.bl_constraint(*ideals)
 validity = HAMRspace.det_constraints(*aerobounds)
 print validity
+

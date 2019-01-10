@@ -32,6 +32,10 @@ class Engine(object):
         self.name = name
         self.config_used = config_used
         
+    def __repr__(self):
+        return 'Name: %s\nP_sl: %f\nPa_6400: %f\nPa_6705: %f\n' % (
+        self.name, self.P_sl, self.determine_power_at_altitude(6400), self.determine_power_at_altitude(6705))
+        
     @staticmethod
     def get_rho(h):
         return 1.225*288.16/(15+271.16-1.983*h/304.8)*(1-(0.001981*h/0.3048)/288.16)**5.256
