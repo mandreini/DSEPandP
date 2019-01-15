@@ -1,0 +1,50 @@
+
+vals1: R=5.500000, c=0.360000, Omega=28.000000
+takeoff1 (h=1402):
+----------------
+    Mtip_cr: 0.677381 - True
+    Mtip_ne: 0.734569 - True
+    myu: 0.318584 - True
+    bl: 0.080465 - True
+cruise1 (h=3930):
+----------------
+    Mtip_cr: 0.723154 - True
+    Mtip_ne: 0.788670 - True
+    myu: 0.341880 - True
+    bl: 0.104123 - True
+takeoff2 (h=3780):
+----------------
+    Mtip_cr: 0.697126 - True
+    Mtip_ne: 0.755981 - True
+    myu: 0.318584 - True
+    bl: 0.102497 - True
+
+vals2: R=5.500000, c=0.360000, Omega=35.000000
+takeoff2 (h=3780):
+----------------
+    Mtip_cr: 0.815884 - True
+    Mtip_ne: 0.874739 - True
+    myu: 0.272212 - True
+    bl: 0.065598 - True
+
+far1 (h=6400):
+----------------
+    Mtip_cr: 0.843843 - True
+    Mtip_ne: 0.904714 - True
+    myu: 0.272212 - True
+    bl: 0.087110 - True
+
+far2 (h=6705):
+----------------
+    Mtip_cr: 0.847288 - True
+    Mtip_ne: 0.908408 - True
+    myu: 0.272212 - True
+    bl: 0.090147 - True
+
+rescue (h=8950):
+----------------
+    Mtip_cr: 0.801316 - True
+    Mtip_ne: 0.845100 - True
+    myu: 0.206186 - True
+    bl: 0.117054 - True
+

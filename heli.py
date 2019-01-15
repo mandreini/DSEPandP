@@ -427,7 +427,7 @@ class SRheli(object):
         if select_engine:
             self.select_engine(power_vals[0])
         self.gen_pcurve(vs, *power_vals, figtitle=figtitle, fname=fname)
-        return v_vals, power_vals[0]
+        return v_vals, power_vals
     
     def select_engine(self, P_to):
         '''

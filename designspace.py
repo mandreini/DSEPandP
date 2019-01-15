@@ -10,18 +10,26 @@ import matplotlib.pyplot as plt
 
 class DesignSpace(object):
     
-    def __init__(self):
+    def __init__(self, leg, h, v_cr):
         '''
         Initialise and object to check the design space for the HAMRAC.
         Values given are fixed for the current mission.
         Statistical boundaries and constraints are given by Leon.
+        
+        Parameters
+        ----------
+        leg : str
+            The name of the leg for the design space to analyse
+        h : int
+            The altitude of the
         '''
-        self.v_cr = 140/1.9
-        self.vmax = self.v_cr*1.15 
+        self.leg = leg
+        self.v_cr = v_cr
+        self.vmax = v_cr*1.15 
         self.vne = self.vmax*1.1
-        self.Nb = 8
-        self.W = 2500*9.81
-        self.h = 8950
+        self.Nb = 6
+        self.W = 2487*9.81
+        self.h = h
 
         self.statistical_boundaries = {
             'c': [0.19, 0.45],
@@ -55,19 +63,23 @@ class DesignSpace(object):
         
     def bl_constraint(self, R, c, Omega):
         '''blade loading'''
-#        v_tip = Omega*R + self.v_cr
+#        v_tip = Omega*R +self.v_cr
 #        s = 0.6
 #        sigma = self.Nb * c / np.pi / R
-#        bl = s*self.W / (sigma*c*self.Nb*R*v_tip**2)
-        Cts = self.W / (self.get_rho(8900) * self.Nb * c * R * (Omega*R)**2)
+        Cts = self.W / (self.get_rho(self.h) * self.Nb * c * R * (Omega*R)**2)
+#        Cts = s*self.W / (sigma * c * self.Nb * R * v_tip**2)
         return Cts
         
-    def det_constraints(self, Mtip_cr, Mtip_ne, myu, bl):
+    def det_constraints(self, R, c, Omega):
         ''' Mtip @ cruise @ 8950m < 0.85 '''
         ''' vtip < 0.92 mach @ vne @ 8950m '''
         ''' myu < 0.45 in cruise '''
         ''' bl < 0.12 '''
-        return Mtip_cr < 0.85, Mtip_ne < 0.92, myu < 0.45, bl < 0.12
+        Mtip_cr = self.Mtip_cr_constraint(R, c, Omega)
+        Mtip_ne = self.Mtip_ne_constraint(R, c, Omega)
+        myu = self.myu_constraint(R, c, Omega)
+        bl = self.bl_constraint(R, c, Omega)
+        return (Mtip_cr, Mtip_ne, myu, bl), (Mtip_cr < 0.85, Mtip_ne < 0.92, myu < 0.45, bl < 0.12)
 
     def get_a(self, h):
         return np.sqrt(1.4 * 287 * self.get_T(h))
@@ -371,11 +383,11 @@ class DesignSpace(object):
          (Rs1, Rs2, Rs3, Rs4), (cs1, cs2, cs3, cs4),
          (RA1, RA2, RA3, RA4), (cA1, cA2, cA3, cA4)) = (Rvs, Ovs, Rms, Oms, Rss, css, RAs, cAs)
          
-        xsRO, xsRc = HAMRspace.determine_borders(Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs)
+        xsRO, xsRc = self.determine_borders(Rvs, Rms, Ovs, Oms, Rss, RAs, css, cAs)
         xsOv1, xsOv2, xsRv1, xsRv2, xsOm1, xsOm2, xsRm1, xsRm2 = xsRO
         xsRs1, xsRs2, xsRA1, xsRA2, xscs1, xscs2, xscA1, xscA2 = xsRc
         
-        dspaceRO, dspaceRc= HAMRspace.get_available_space(coordsX, coordsY, coordsZ, xsRO, xsRc)
+        dspaceRO, dspaceRc= self.get_available_space(coordsX, coordsY, coordsZ, xsRO, xsRc)
         dspaceRO = np.array(dspaceRO)
         dspaceRc = np.array(dspaceRc)
         
@@ -404,7 +416,7 @@ class DesignSpace(object):
         fig = plt.figure()
 #        axRO = fig.add_subplot(111, projection='3d')
         axRO = fig.add_subplot(111)
-        plt.title("Design Space for the HAMRAC R-Omega parameters")
+        plt.title('Design Space at %s for the HAMRAC R-Omega parameters' % self.leg)
         plt.grid(which='major')
         plt.xlabel('R [m]')
         plt.ylabel('Omega [rad/s]')
@@ -424,12 +436,12 @@ class DesignSpace(object):
 #        plt.scatter(R2opt, Cts1[1])
 
         plt.legend()
-        plt.savefig('mdo/desspaceRO.png')
+        plt.savefig('mdo/desspaceRO_%s.png' % self.leg)
         plt.show()
 #        
         fig = plt.figure()
         axRc = fig.add_subplot(111)#, projection='3d')
-        plt.title("Design Space for the HAMRAC")
+        plt.title('Design Space at %s for the HAMRAC R-c parameters' % self.leg)
         plt.grid(which='major')
         plt.xlabel('R [m]')
         plt.ylabel('c [m]')
@@ -451,18 +463,89 @@ class DesignSpace(object):
         plt.plot(Rset, Cts2upper)
         
         plt.legend(loc='lower right')
-        plt.savefig('mdo/desspaceRc.png')
+        plt.savefig('mdo/desspaceRc_%s.png' % self.leg)
         plt.show()
         
-HAMRspace = DesignSpace()
-data = HAMRspace.compare_statistics()
-idealR = 5.9
-idealc = 0.301
-idealOmega = 31
-HAMRspace.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+rescue = DesignSpace('rescue', 8950, 50) # 120 kts
+far1 = DesignSpace('far1', 6400, 72)
+far2 = DesignSpace('far2', 6705, 72)
+takeoff1 = DesignSpace('takeoff intl airport', 1402, 72)
+cruise1 = DesignSpace('cruise1', 3930, 80) # 150 kts
+climb1 = DesignSpace('climb1', 6200, 40)
+takeoff2 = DesignSpace('takeoff refuelling', 3780, 72)
 
-ideals = idealR, idealc, idealOmega
-aerobounds = HAMRspace.Mtip_cr_constraint(*ideals), HAMRspace.Mtip_ne_constraint(*ideals), HAMRspace.myu_constraint(*ideals), HAMRspace.bl_constraint(*ideals)
-validity = HAMRspace.det_constraints(*aerobounds)
-print validity
 
+data = rescue.compare_statistics()
+far1space = far1.compare_statistics()
+far2space = far2.compare_statistics()
+takeoff1space = takeoff1.compare_statistics()
+cruise1space = cruise1.compare_statistics()
+climb1space = climb1.compare_statistics()
+takeoff2space = takeoff2.compare_statistics()
+
+R = 5.5
+c = 0.36
+Omega = 28
+Omega2 = 35
+
+#rescue.plot_boundaries(data[0][0], data[1][0], data[0][1], data[1][1], data[2][0], data[3][0], data[2][1], data[3][1], idealR=R, idealc=c, idealOmega=Omega)
+#far1.plot_boundaries(far1space[0][0], far1space[1][0], far1space[0][1], far1space[1][1], far1space[2][0], far1space[3][0], far1space[2][1], far1space[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+#far2.plot_boundaries(far2space[0][0], far2space[1][0], far2space[0][1], far2space[1][1], far2space[2][0], far2space[3][0], far2space[2][1], far2space[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+#takeoff1.plot_boundaries(takeoff1space[0][0], takeoff1space[1][0], takeoff1space[0][1], takeoff1space[1][1], takeoff1space[2][0], takeoff1space[3][0], takeoff1space[2][1], takeoff1space[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+#takeoff2.plot_boundaries(takeoff2space[0][0], takeoff2space[1][0], takeoff2space[0][1], takeoff2space[1][1], takeoff2space[2][0], takeoff2space[3][0], takeoff2space[2][1], takeoff2space[3][1], idealR=idealR, idealc=idealc, idealOmega=idealOmega)
+
+# rotor 2: at takeoff+cruise+refuel
+#f12bounds, f12validity = far1.det_constraints(*ideals2)
+#f22bounds, f22validity = far2.det_constraints(*ideals2)
+to2bounds, to2validity = takeoff2.det_constraints(R, c, Omega)
+c1bounds, c1validity = cruise1.det_constraints(R, c, Omega)
+to1bounds, to1validity = takeoff1.det_constraints(R, c, Omega)
+
+#blade 2: at refuel+FAR+rescue
+rbounds, rvalidity = rescue.det_constraints(R, c, Omega2)
+f2bounds, f2validity = far2.det_constraints(R, c, Omega2)
+f1bounds, f1validity = far1.det_constraints(R, c, Omega2)
+to22bounds, to22validity = takeoff2.det_constraints(R, c, Omega2)
+#c1bounds, c1validity = cruise1.det_constraints(*ideals2)
+
+   
+vals1 = [('takeoff1', takeoff1.h, to1bounds, to1validity),
+         ('cruise1', cruise1.h, c1bounds, c1validity), 
+         ('takeoff2', takeoff2.h, to2bounds, to2validity), ]
+
+vals2 = [('takeoff2', takeoff2.h, to22bounds, to22validity),
+         ('far1', far1.h, f1bounds, f1validity), 
+         ('far2', far2.h, f2bounds, f2validity),
+         ('rescue', rescue.h, rbounds, rvalidity), ]
+     
+
+f = open('mdo/designspaceconstraintsresults.txt', 'w')
+
+paramstr1 = '\nvals1: R=%f, c=%f, Omega=%f\n' % (R, c, Omega)
+print(paramstr1)
+f.write(paramstr1)
+
+for v in vals1:
+    output = '''%s (h=%i):\n----------------
+    Mtip_cr: %f - %s
+    Mtip_ne: %f - %s
+    myu: %f - %s
+    bl: %f - %s\n''' % (v[0], v[1], v[2][0], v[3][0], v[2][1], v[3][1], v[2][2], v[3][2], v[2][3], v[3][3])
+    print(output)
+    f.write(output)
+
+paramstr2 = '\nvals2: R=%f, c=%f, Omega=%f\n' % (R, c, Omega2)
+print(paramstr2)
+f.write(paramstr2)
+
+for v in vals2:
+    output = '''%s (h=%i):\n----------------
+    Mtip_cr: %f - %s
+    Mtip_ne: %f - %s
+    myu: %f - %s
+    bl: %f - %s\n\n''' % (v[0], v[1], v[2][0], v[3][0], v[2][1], v[3][1], v[2][2], v[3][2], v[2][3], v[3][3])
+    print(output)
+    f.write(output)
+
+
+f.close() 
